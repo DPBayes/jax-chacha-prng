@@ -175,7 +175,7 @@ def chacha_encrypt(key, iv, counter, message):
 ## - 256 bit random key unchanged; base randomness that is expanded by PRNG
 
 
-def _random_bits(ctx, bit_width, shape):
+def random_bits(ctx, bit_width, shape):
     if bit_width not in jax.random._UINT_DTYPES:
         raise ValueError(f"requires bit field width in {jax.random._UINT_DTYPES.keys()}")
     size = np.prod(shape)
@@ -199,7 +199,7 @@ def _random_bits(ctx, bit_width, shape):
 
 @partial(jax.jit, static_argnums=(1,))
 def _split(ctx, num) -> jnp.ndarray:
-    ivs = _random_bits(ctx, 32, (num, 3))
+    ivs = random_bits(ctx, 32, (num, 3))
 
     def make_ctx(nonce):
         assert jnp.shape(nonce) == (3,)
@@ -226,7 +226,7 @@ def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
   if nbits not in (16, 32, 64):
     raise TypeError("uniform only accepts 32- or 64-bit dtypes.")
 
-  bits = _random_bits(ctx, nbits, shape)
+  bits = random_bits(ctx, nbits, shape)
 
   # The strategy here is to randomize only the mantissa bits with an exponent of
   # 1 (after applying the bias), then shift and scale to the desired range. The

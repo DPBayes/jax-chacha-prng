@@ -25,7 +25,7 @@ def bits_and_state_update(rng_key: jnp.array, count: int) -> Tuple[jnp.array, jn
     num_blocks = (count+15) // 16 # 512 bit state means 16 32 bit uints
     next_rng_key = chacha.chacha_increase_counter(rng_key, num_blocks)
 
-    random_data = chacha._random_bits(rng_key, 32, (count,))
+    random_data = chacha.random_bits(rng_key, 32, (count,))
     return random_data, next_rng_key
 
 def to_string(rng_key: jnp.array) -> str:

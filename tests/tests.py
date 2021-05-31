@@ -5,7 +5,7 @@ import numpy as np
 np.set_printoptions(formatter={'int':hex})
 
 from chacha import *
-from chacha.chacha import _random_bits, _split
+from chacha.chacha import _split
 
 class Chacha20Tests(unittest.TestCase):
 
@@ -124,7 +124,7 @@ class Chacha20Tests(unittest.TestCase):
         self.assertTrue(np.all(expected_ctx == new_ctx))
 
 
-    def test_random_bits(self) -> None:
+    def testrandom_bits(self) -> None:
         ctx = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
             [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
@@ -133,20 +133,20 @@ class Chacha20Tests(unittest.TestCase):
         ], dtype=jnp.uint32)
 
         shape = (17, 9)
-        x = _random_bits(ctx, 8, shape)
+        x = random_bits(ctx, 8, shape)
         self.assertEqual(x.dtype, jnp.uint8)
         self.assertEqual(x.shape, shape)
 
-        x = _random_bits(ctx, 16, shape)
+        x = random_bits(ctx, 16, shape)
         self.assertEqual(x.dtype, jnp.uint16)
         self.assertEqual(x.shape, shape)
 
-        x = _random_bits(ctx, 32, shape)
+        x = random_bits(ctx, 32, shape)
         self.assertEqual(x.dtype, jnp.uint32)
         self.assertEqual(x.shape, shape)
 
         # needs 64bit jax mode
-        # x = _random_bits(ctx, 64, shape)
+        # x = random_bits(ctx, 64, shape)
         # self.assertEqual(x.dtype, jnp.uint64)
         # self.assertEqual(x.shape, shape)
 
@@ -228,12 +228,12 @@ class Chacha20Tests(unittest.TestCase):
         ctr = chacha_get_counter(ctx)
         self.assertEqual(7, ctr)
 
-    def test_random_bits_consistency(self) -> None:
+    def testrandom_bits_consistency(self) -> None:
         ctx = PRNGKey(0)
-        single_vals = _random_bits(ctx, 32, (32,))
-        multi_vals_1 = _random_bits(ctx, 32, (16,))
+        single_vals = random_bits(ctx, 32, (32,))
+        multi_vals_1 = random_bits(ctx, 32, (16,))
         ctx_2 = chacha_set_counter(ctx, 1)
-        multi_vals_2 = _random_bits(ctx_2, 32, (16,))
+        multi_vals_2 = random_bits(ctx_2, 32, (16,))
         self.assertTrue(np.all(single_vals[:16] == multi_vals_1))
         self.assertTrue(np.all(single_vals[16:] == multi_vals_2))
 
