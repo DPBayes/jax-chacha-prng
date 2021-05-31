@@ -5,7 +5,7 @@ import numpy as np
 np.set_printoptions(formatter={'int':hex})
 
 from chacha import *
-from chacha import _random_bits, _split
+from chacha.chacha import _random_bits, _split
 
 class Chacha20Tests(unittest.TestCase):
 

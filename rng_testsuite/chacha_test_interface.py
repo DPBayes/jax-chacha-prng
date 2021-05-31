@@ -1,3 +1,5 @@
+""" Interfacing module for accessing Python ChaCha20RNG implementation from TestU01 framework. """
+
 import jax.config
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp

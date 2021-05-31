@@ -2,3 +2,4 @@
 *__pycache__*
 rng_testsuite/extern/TestU01*
 */build/*
+*egg-info/*
