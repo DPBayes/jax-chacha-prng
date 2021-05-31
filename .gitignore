@@ -1,0 +1,4 @@
+*.vscode*
+*__pycache__*
+rng_testsuite/extern/TestU01*
+*/build/*
