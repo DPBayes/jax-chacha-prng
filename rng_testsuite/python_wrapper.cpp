@@ -40,11 +40,12 @@ void ScopedPyObject::swap(ScopedPyObject& other)
 ScopedPyObject& ScopedPyObject::operator=(ScopedPyObject other)
 {
     swap(other);
+    return *this;
 }
 
 ScopedPyObject::operator PyObject*() const { return _object; }
 
-bool ScopedPyObject::operator==(const ScopedPyObject& other) { _object == other._object; }
+bool ScopedPyObject::operator==(const ScopedPyObject& other) { return _object == other._object; }
 
 void ScopedPyObject::makeOwned()
 {
