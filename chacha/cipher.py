@@ -113,6 +113,7 @@ def setup_state(
     if jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != 3:
         raise ValueError("iv must be three 32-bit unsigned integers or a buffer of 12 bytes!")
 
+    if isinstance(counter, int): counter = jnp.uint32(counter)
     if jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != 1:
         raise ValueError("counter must be a single 32-bit unsigned integer!")
 
