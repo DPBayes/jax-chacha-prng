@@ -19,11 +19,14 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://version.aalto.fi/gitlab/predigl2/jax-chacha20-prng",
     packages=setuptools.find_packages(include=['chacha', 'chacha.*']),
-    python_requires='>=3.7, <=3.9',
+    python_requires='>=3.6',
     install_requires=[
-        'jax == 0.2.3',
-        'jaxlib == 0.1.56'
+        "numpy >= 1.16, < 2",
+        "jax >= 0.2.10, < 0.2.13"
     ], # todo: find stable versions
+    extras_require={
+        "tests": ["jax[minimum-jaxlib] >= 0.2.10, < 0.2.13"],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",

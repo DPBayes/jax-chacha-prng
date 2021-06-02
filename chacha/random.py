@@ -1,6 +1,7 @@
-import jax.numpy as jnp
 import numpy as np
 import jax
+import jax.numpy as jnp
+from jax._src.random import _UINT_DTYPES, _check_shape
 import typing
 from functools import partial
 
@@ -13,10 +14,9 @@ import chacha.cipher as cc
 ## - 96 bit IV used for PRNG splits -> splitting always resets counter
 ## - 256 bit random key unchanged; base randomness that is expanded by PRNG
 
-
 def random_bits(ctx, bit_width, shape):
-    if bit_width not in jax.random._UINT_DTYPES:
-        raise ValueError(f"requires bit field width in {jax.random._UINT_DTYPES.keys()}")
+    if bit_width not in _UINT_DTYPES:
+        raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
     size = np.prod(shape)
     num_bits = bit_width * size
     block_size_in_bits = 4*4*32
@@ -29,7 +29,7 @@ def random_bits(ctx, bit_width, shape):
     blocks = jax.vmap(generate_block)(counters).flatten()
     assert blocks.shape == (num_blocks * 16,)
 
-    dtype = jax.random._UINT_DTYPES[bit_width]
+    dtype = _UINT_DTYPES[bit_width]
 
     out = cc.serialize(blocks, dtype)
     assert jnp.size(out) >= size
@@ -50,7 +50,7 @@ def _split(ctx, num) -> jnp.ndarray:
 
 @partial(jax.jit, static_argnums=(1, 2))
 def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
-  jax.random._check_shape("uniform", shape)
+  _check_shape("uniform", shape)
   if not jnp.issubdtype(dtype, np.floating):
     raise TypeError("uniform only accepts floating point dtypes.")
 
@@ -73,7 +73,7 @@ def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
   # equivalent float representations, which might not be true on all platforms.
   float_bits = jax.lax.bitwise_or(
       jax.lax.shift_right_logical(bits, np.array(nbits - nmant, jax.lax.dtype(bits))),
-      np.array(1., dtype).view(jax.random._UINT_DTYPES[nbits]))
+      np.array(1., dtype).view(_UINT_DTYPES[nbits]))
   floats = jax.lax.bitcast_convert_type(float_bits, dtype) - np.array(1., dtype)
   return jax.lax.max(
       minval,
@@ -107,7 +107,7 @@ def split(ctx: jnp.ndarray, num: int = 2) -> jnp.ndarray:
 
 def uniform(key: jnp.ndarray,
             shape: typing.Sequence[int] = (),
-            dtype: np.dtype = jax.dtypes.float_,
+            dtype: np.dtype = jnp.float64,
             minval: typing.Union[float, jnp.ndarray] = 0.,
             maxval: typing.Union[float, jnp.ndarray] = 1.) -> jnp.ndarray:
   """Sample uniform random values in [minval, maxval) with given shape/dtype.
