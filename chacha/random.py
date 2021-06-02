@@ -82,9 +82,16 @@ def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
 
 def PRNGKey(key: typing.Union[jnp.array, int, bytes]) -> jnp.array:
     if isinstance(key, int):
-        key = key % (1 << 256)
-        key = key.to_bytes(32, byteorder='big', signed=False)
+        key = key % (1 << cc.ChaChaKeySizeInBits)
+        key = key.to_bytes(cc.ChaChaKeySizeInBytes, byteorder='big', signed=False)
     if isinstance(key, bytes):
+        if len(key) > cc.ChaChaKeySizeInBytes:
+            raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
+        key = np.frombuffer(key, dtype=np.uint8)
+        buf = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
+        buf[:len(key)] = key
+        key = buf.tobytes()
+
         key = cc.from_buffer(key)
 
     key = jnp.array(key).flatten()[0:8]

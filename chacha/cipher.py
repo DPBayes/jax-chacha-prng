@@ -2,6 +2,7 @@ import jax.numpy as jnp
 import numpy as np
 import jax
 from typing import Union, Type, Optional, Tuple
+np.set_printoptions(formatter={'int':hex})
 
 # jax implementation of https://cr.yp.to/chacha/chacha-20080128.pdf
 # following: https://tools.ietf.org/html/rfc7539
@@ -12,6 +13,10 @@ ChaChaStateElementCount = np.prod(ChaChaStateShape)
 ChaChaStateElementType = jnp.uint32
 ChaChaStateElementBitWidth = jnp.iinfo(ChaChaStateElementType).bits
 ChaChaStateBitSize = ChaChaStateElementCount * ChaChaStateElementBitWidth
+
+ChaChaKeySizeInBits = 256
+ChaChaKeySizeInBytes = ChaChaKeySizeInBits >> 3
+ChaChaKeySizeInWords = ChaChaKeySizeInBytes >> 2
 
 
 #### CORE CHACHA ROUND FUNCTIONS ####

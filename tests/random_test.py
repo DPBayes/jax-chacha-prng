@@ -1,4 +1,6 @@
 import unittest
+import jax
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 np.set_printoptions(formatter={'int':hex})
@@ -31,9 +33,9 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertEqual(x.shape, shape)
 
         # needs 64bit jax mode
-        # x = random_bits(ctx, 64, shape)
-        # self.assertEqual(x.dtype, jnp.uint64)
-        # self.assertEqual(x.shape, shape)
+        x = random_bits(ctx, 64, shape)
+        self.assertEqual(x.dtype, jnp.uint64)
+        self.assertEqual(x.shape, shape)
 
 
     def test_split(self) -> None:
@@ -95,17 +97,55 @@ class ChaChaRNGTests(unittest.TestCase):
         ], dtype=jnp.uint32)
         self.assertTrue(np.all(expected_sixth == sixth_ctx))
 
-    def test_PRNGKey(self) -> None:
+    def test_PRNGKey_from_int(self) -> None:
         x = 9651354789628635673475235
-        # x = jnp.ones(8, dtype=jnp.uint32)
+
+        expected_ctx = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x00000000, 0x00000000, 0x00000000, 0x00000000],
+            [0x00000000, 0xc0fb0700, 0x0412d4fd, 0xa338f3bf],
+            [0x00000000, 0x00000000, 0x00000000, 0x00000000]
+        ], dtype=jnp.uint32)
+
         ctx = PRNGKey(x)
-        raise NotImplementedError()
+        self.assertTrue(np.all(expected_ctx == ctx))
+
+    def test_PRNGKey_from_bytes(self) -> None:
+        x = bytes(range(30))
+
+        expected_ctx = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0xf0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x00001d1c],
+            [0x00000000, 0x00000000, 0x00000000, 0x00000000]
+        ], dtype=jnp.uint32)
+
+        ctx = PRNGKey(x)
+
+        self.assertTrue(np.all(expected_ctx == ctx))
+
+    def test_PRNGKey_from_bytes_rejects_too_long(self) -> None:
+        x = bytes(range(33))
+
+        with self.assertRaises(ValueError):
+            PRNGKey(x)
 
     def test_uniform(self) -> None:
+        """ verifies that the outputs of uniform have correct type, shape and bounds.
+
+        does not test for uniformity; we have the rng testsuite for that.
+        """
         ctx = PRNGKey(0)
-        data = uniform(ctx, (3, 12))
-        print(data)
-        raise NotImplementedError()
+        shape = (3, 12)
+        minval = 1
+        maxval = 3
+        dtype = jnp.float32
+        data = uniform(ctx, shape, dtype, minval, maxval)
+
+        self.assertEqual(jnp.float32, data.dtype)
+        self.assertEqual(shape, data.shape)
+        self.assertTrue(np.all(data >= minval))
+        self.assertTrue(np.all(data <= maxval))
 
     def test_random_bits_consistency(self) -> None:
         """ verifies that there is no difference between sampling two blocks directly
