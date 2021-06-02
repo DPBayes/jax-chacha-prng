@@ -10,11 +10,11 @@ import chacha.cipher as cc
 ################# chacha cipher based rng #########
 
 ## invariant for PRNG
-## - 32 bit counter always starts from zero; used to increment for single calls to obtain arbitrary many random bits from current ctx
+## - 32 bit counter always starts from zero; used to increment for single calls to obtain arbitrary many random bits from current rng_key
 ## - 96 bit IV used for PRNG splits -> splitting always resets counter
 ## - 256 bit random key unchanged; base randomness that is expanded by PRNG
 
-def random_bits(ctx, bit_width, shape):
+def random_bits(rng_key, bit_width, shape):
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
     size = np.prod(shape)
@@ -24,7 +24,7 @@ def random_bits(ctx, bit_width, shape):
     counters = jax.lax.iota(jnp.uint32, num_blocks)
 
     def generate_block(c):
-        return cc._block(cc.increase_counter(ctx, c)).flatten()
+        return cc._block(cc.increase_counter(rng_key, c)).flatten()
 
     blocks = jax.vmap(generate_block)(counters).flatten()
     assert blocks.shape == (num_blocks * 16,)
@@ -37,19 +37,19 @@ def random_bits(ctx, bit_width, shape):
     return out[:size].reshape(shape)
 
 @partial(jax.jit, static_argnums=(1,))
-def _split(ctx, num) -> jnp.ndarray:
-    ivs = random_bits(ctx, 32, (num, 3))
+def _split(rng_key, num) -> jnp.ndarray:
+    ivs = random_bits(rng_key, 32, (num, 3))
 
-    def make_ctx(nonce):
+    def make_rng_key(nonce):
         assert jnp.shape(nonce) == (3,)
         assert jnp.dtype(nonce) == jnp.uint32
-        return cc.set_counter(cc.set_nonce(ctx, nonce), 0)
+        return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
-    return jax.vmap(make_ctx)(ivs)
+    return jax.vmap(make_rng_key)(ivs)
 
 
 @partial(jax.jit, static_argnums=(1, 2))
-def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
+def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
   _check_shape("uniform", shape)
   if not jnp.issubdtype(dtype, np.floating):
     raise TypeError("uniform only accepts floating point dtypes.")
@@ -65,7 +65,7 @@ def _uniform(ctx, shape, dtype, minval, maxval) -> jnp.ndarray:
   if nbits not in (16, 32, 64):
     raise TypeError("uniform only accepts 32- or 64-bit dtypes.")
 
-  bits = random_bits(ctx, nbits, shape)
+  bits = random_bits(rng_key, nbits, shape)
 
   # The strategy here is to randomize only the mantissa bits with an exponent of
   # 1 (after applying the bias), then shift and scale to the desired range. The
@@ -99,7 +99,7 @@ def PRNGKey(key: typing.Union[jnp.array, int, bytes]) -> jnp.array:
     iv = jnp.zeros(3, dtype=jnp.uint32)
     return cc.setup_state(key, iv, jnp.zeros(1, dtype=jnp.uint32))
 
-def split(ctx: jnp.ndarray, num: int = 2) -> jnp.ndarray:
+def split(rng_key: jnp.ndarray, num: int = 2) -> jnp.ndarray:
     """Splits a PRNG key into `num` new keys by adding a leading axis.
 
     Args:
@@ -110,7 +110,7 @@ def split(ctx: jnp.ndarray, num: int = 2) -> jnp.ndarray:
     Returns:
         An array with shape (num, 4, 4) and dtype uint32 representing `num` new keys.
     """
-    return _split(ctx, int(num))
+    return _split(rng_key, int(num))
 
 def uniform(key: jnp.ndarray,
             shape: typing.Sequence[int] = (),

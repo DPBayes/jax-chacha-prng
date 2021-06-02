@@ -14,7 +14,7 @@ setuptools.setup(
     version = version_module.VERSION,
     author="Lukas Prediger",
     author_email="lukas.m.prediger@aalto.fi",
-    description="A pseudo-random number generator for JAX based on the ChaCha20 cipher.",
+    description="A pseudo-random number generator for JAX based on the 20 round ChaCha cipher.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://version.aalto.fi/gitlab/predigl2/jax-chacha20-prng",

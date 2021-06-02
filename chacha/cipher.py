@@ -47,14 +47,14 @@ def _quarterround(x: jnp.array) -> jnp.array:
     return jnp.array([a,b,c,d], dtype=jnp.uint32)
 
 @jax.jit
-def _double_round(ctx: ChaChaState) -> ChaChaState:
-    assert ctx.shape == ChaChaStateShape
-    assert ctx.dtype == ChaChaStateElementType
+def _double_round(state: ChaChaState) -> ChaChaState:
+    assert state.shape == ChaChaStateShape
+    assert state.dtype == ChaChaStateElementType
 
     qr_vmap = jax.vmap(_quarterround, in_axes=1, out_axes=1)
 
     # quarterround for each column
-    ctx = qr_vmap(ctx)
+    state = qr_vmap(state)
 
     # moving diagonals into columns
     diag_map = jnp.array([
@@ -63,10 +63,10 @@ def _double_round(ctx: ChaChaState) -> ChaChaState:
         10, 11,  8,  9,
         15, 12, 13, 14
     ])
-    diag_ctx = ctx.ravel()[diag_map].reshape(4, 4)
+    diag_state = state.ravel()[diag_map].reshape(4, 4)
 
     # quarterround for each column (aka, diagonal)
-    diag_ctx = qr_vmap(diag_ctx)
+    diag_state = qr_vmap(diag_state)
 
     # undo previous mapping
     back_map = jnp.array([
@@ -75,18 +75,18 @@ def _double_round(ctx: ChaChaState) -> ChaChaState:
         10, 11,  8,  9,
         13, 14, 15, 12
     ])
-    ctx = diag_ctx.ravel()[back_map].reshape(4, 4)
-    return ctx
+    state = diag_state.ravel()[back_map].reshape(4, 4)
+    return state
 
 @jax.jit
-def _block(ctx: ChaChaState) -> ChaChaState:
-    assert ctx.shape == ChaChaStateShape
-    assert ctx.dtype == ChaChaStateElementType
+def _block(state: ChaChaState) -> ChaChaState:
+    assert state.shape == ChaChaStateShape
+    assert state.dtype == ChaChaStateElementType
 
-    ori_ctx = ctx
-    ctx = jax.lax.fori_loop(0, 10, lambda i, ctx: _double_round(ctx), ctx)
-    ctx += ori_ctx
-    return ctx
+    ori_state = state
+    state = jax.lax.fori_loop(0, 10, lambda i, state: _double_round(state), state)
+    state += ori_state
+    return state
 
 #### STATE SETUP AND MANIPULATION FUNCTIONS ####
 KEY_GEN_CONSTANTS = {
@@ -122,57 +122,59 @@ def setup_state(
         key = jnp.tile(key, 2)
     key = key.reshape(2, 4)
     inputs = jnp.hstack((counter, iv))
-    ctx = jnp.vstack((KEY_GEN_CONSTANTS[key_bits], key, inputs))
-    return ctx
+    state = jnp.vstack((KEY_GEN_CONSTANTS[key_bits], key, inputs))
+    return state
 
 def from_buffer(buffer: bytes) -> jnp.ndarray:
     return jnp.array(np.frombuffer(buffer, dtype=np.uint32))
 
-def increase_counter(ctx: ChaChaState, amount: Union[int, jnp.ndarray]) -> ChaChaState:
-    return jax.ops.index_add(ctx, (3,0), amount, True, True)
+def increase_counter(state: ChaChaState, amount: Union[int, jnp.ndarray]) -> ChaChaState:
+    return jax.ops.index_add(state, (3,0), amount, True, True)
 
-def increment_counter(ctx: ChaChaState) -> ChaChaState:
-    return increase_counter(ctx, 1)
+def increment_counter(state: ChaChaState) -> ChaChaState:
+    return increase_counter(state, 1)
 
-def set_counter(ctx: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaState:
-    return jax.ops.index_update(ctx, (3,0), counter, True, True)
+def set_counter(state: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaState:
+    return jax.ops.index_update(state, (3,0), counter, True, True)
 
-def get_counter(ctx: ChaChaState) -> int:
-    return int(ctx[3,0])
+def get_counter(state: ChaChaState) -> int:
+    return int(state[3,0])
 
-def set_nonce(ctx: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
+def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
     assert jnp.shape(nonce) == (3,)
-    assert jnp.dtype(ctx) == jnp.dtype(nonce)
-    return jax.ops.index_update(ctx, jax.ops.index[3, 1:4], nonce, True, True)
+    assert jnp.dtype(state) == jnp.dtype(nonce)
+    return jax.ops.index_update(state, jax.ops.index[3, 1:4], nonce, True, True)
 
-def get_nonce(ctx: ChaChaState) -> jnp.ndarray:
-    return ctx[3, 1:3]
+def get_nonce(state: ChaChaState) -> jnp.ndarray:
+    return state[3, 1:3]
 
-def serialize(ctx: ChaChaState, out_dtype: Type=jnp.uint8) -> jnp.ndarray:
+def serialize(state: ChaChaState, out_dtype: Type=jnp.uint8) -> jnp.ndarray:
     """ Converts a ChaCha state into a linear array of the specified type. """
-    assert jax.lax.dtype(ctx) == ChaChaStateElementType
+    assert jax.lax.dtype(state) == ChaChaStateElementType
     type_info = jnp.iinfo(out_dtype)
 
-    ctx = ctx.flatten()
+    state = state.flatten()
     bit_width = type_info.bits
     if bit_width == 64:
-        ctx = [jax.lax.convert_element_type(x, out_dtype) for x in jnp.split(ctx, 2)]
-        ctx = jax.lax.shift_left(ctx[0], out_dtype(32)) | ctx[1]
+        state = [jax.lax.convert_element_type(x, out_dtype) for x in jnp.split(state, 2)]
+        state = jax.lax.shift_left(state[0], out_dtype(32)) | state[1]
     elif bit_width in [8, 16]:
-        ctx = jax.lax.shift_right_logical(
-            jax.lax.broadcast(ctx, (1,)),
+        state = jax.lax.shift_right_logical(
+            jax.lax.broadcast(state, (1,)),
             jax.lax.mul(
                 jnp.uint32(bit_width),
                 jax.lax.broadcasted_iota(jnp.uint32, (32 // bit_width, 1), 0)
             )
         )
-        ctx = jax.lax.reshape(ctx, (jnp.size(ctx),), (1, 0))
-        ctx = jax.lax.convert_element_type(ctx, out_dtype)
+        state = jax.lax.reshape(state, (jnp.size(state),), (1, 0))
+        state = jax.lax.convert_element_type(state, out_dtype)
 
-    return ctx
+    return state
 
-def encrypt(message: bytes, ctx: ChaChaState) -> Tuple[bytes, ChaChaState]:
-    """ Encrypts a message of arbitrary length with the given ChaCha state. """
+def encrypt(message: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
+    """ Encrypts a message of arbitrary length with the given ChaCha state.
+
+    Also returns the new state."""
     block_nr = 0
     ciphertext = b''
     ChaChaStateByteSize = ChaChaStateBitSize >> 3
@@ -181,14 +183,14 @@ def encrypt(message: bytes, ctx: ChaChaState) -> Tuple[bytes, ChaChaState]:
             message[block_nr*ChaChaStateByteSize : (block_nr+1)*ChaChaStateByteSize], dtype=np.uint8
         )
 
-        key_stream = serialize(_block(ctx))[:len(message_block)]
+        key_stream = serialize(_block(state))[:len(message_block)]
         cipher_block = message_block ^ key_stream
         ciphertext += cipher_block.tobytes()
 
-        ctx = increment_counter(ctx)
+        state = increment_counter(state)
         block_nr += 1
 
-    return ciphertext, ctx
+    return ciphertext, state
 
 
 def encrypt_with_key(
@@ -196,10 +198,31 @@ def encrypt_with_key(
         key: Union[bytes, jnp.ndarray],
         iv: Union[bytes, jnp.ndarray],
         counter: Optional[Union[int, jnp.ndarray]]=0,
+    ) -> Tuple[bytes, int]:
+    """ Encrypts a message of arbitrary length with given key, IV and counter.
+
+    Also returns the new counter value.
+    """
+
+    state = setup_state(key, iv, counter)
+    ciphertext, state = encrypt(message, state)
+
+    return ciphertext, get_counter(state)
+
+def decrypt(ciphertext: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
+    """ Decrypts a ciphertext of arbitrary length with the given ChaCha state.
+
+    Also returns the new state."""
+
+    return encrypt(ciphertext, state)
+
+def decrypt_with_key(
+        ciphertext: bytes,
+        key: Union[bytes, jnp.ndarray],
+        iv: Union[bytes, jnp.ndarray],
+        counter: Optional[Union[int, jnp.ndarray]]=0,
     ) -> bytes:
-    """ Encrypts a message of arbitrary length with given key, IV and counter. """
+    """ Decrypts a ciphertext of arbitrary length with given key, IV and counter.
 
-    ctx = setup_state(key, iv, counter)
-    ciphertext, _ = encrypt(message, ctx)
-
-    return ciphertext
+    Also returns the new counter value."""
+    return encrypt_with_key(ciphertext, key, iv, counter)
