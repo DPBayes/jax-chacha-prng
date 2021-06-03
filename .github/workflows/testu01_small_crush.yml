@@ -1,0 +1,40 @@
+name: TestU01 Small Crush
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ stable ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: apt-get update && apt-get install -y cmake
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Download and Compile TestU01
+      working-directory: rng_testsuite/extern
+      run: |
+        ./download_TestU01.sh
+        ./build_TestU01.sh
+    - name: Create build directory
+      working-directory: rng_testsuite
+      run: mkdir build
+    - name: Build Testsuite
+      working-directory: rng_testsuite/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make
+    - name: Install Python dependencies
+      run: python -m pip install .[tests]
+    - name: Run Small Crush Battery
+      working-directory: rng_testsuite
+      run: |
+        build/rng_tests small-crush ./chacha_test_interface.py | python rng_test_result_parser.py
