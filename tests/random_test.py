@@ -1,13 +1,11 @@
 import unittest
-import jax
-jax.config.update("jax_enable_x64", True)
+import testconfig  # noqa
 import jax.numpy as jnp
-import numpy as np
-np.set_printoptions(formatter={'int':hex})
 
-from chacha.random import *
-from chacha.random import _split
+from chacha.random import _split, PRNGKey, random_bits, uniform
 from chacha.cipher import set_counter
+import numpy as np
+
 
 class ChaChaRNGTests(unittest.TestCase):
 
@@ -37,7 +35,6 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertEqual(x.dtype, jnp.uint64)
         self.assertEqual(x.shape, shape)
 
-
     def test_split(self) -> None:
         rng_key = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
@@ -46,8 +43,8 @@ class ChaChaRNGTests(unittest.TestCase):
             [0x00000000, 0x00000000, 0x00000000, 0x00000000],
         ], dtype=jnp.uint32)
 
+        # 6 splits require two blocks of randomness
         first_rng_key, second_rng_key, third_rng_key, fourth_rng_key, fifth_rng_key, sixth_rng_key = _split(rng_key, 6)
-            # 6 splits require two blocks of randomness
 
         expected_first = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
@@ -157,7 +154,6 @@ class ChaChaRNGTests(unittest.TestCase):
         multi_vals_2 = random_bits(rng_key_2, 32, (16,))
         self.assertTrue(np.all(single_vals[:16] == multi_vals_1))
         self.assertTrue(np.all(single_vals[16:] == multi_vals_2))
-
 
 
 if __name__ == '__main__':
