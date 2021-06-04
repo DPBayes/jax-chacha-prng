@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
+""" A JAX-accelerated implementation of the 20-round ChaCha cipher.
+
+The cipher is due to Daniel J. Bernstein and described in https://cr.yp.to/chacha/chacha-20080128.pdf.
+The implementation follows a slight variation specified in https://tools.ietf.org/html/rfc7539.
+"""
+
 import jax.numpy as jnp
 import numpy as np
 import jax
 from typing import Union, Type, Optional, Tuple
 np.set_printoptions(formatter={'int': hex})
-
-# jax implementation of https://cr.yp.to/chacha/chacha-20080128.pdf
-# following: https://tools.ietf.org/html/rfc7539
 
 ChaChaState = jnp.array
 ChaChaStateShape = (4, 4)
@@ -105,18 +108,28 @@ KEY_GEN_CONSTANTS = {
 def setup_state(
         key: Union[bytes, jnp.ndarray],
         iv: Union[bytes, jnp.ndarray],
-        counter: Union[int, jnp.ndarray]
+        counter: Optional[Union[int, jnp.ndarray]] = 0
     ) -> ChaChaState:  # noqa:E121,E125
+    """ Initializes and returns a ChaChaState given key, iv/nonce and an optional initial counter.
+
+    Args:
+      key: A 256 bit key, either as a bytes object or a size 32 array of 32 bit integers.
+      iv: A 96 bit initialization vector / nonce, either as a bytes object or a size 3 array of 32 bit integers.
+      counter: An optional initial counter values. Defaults to 0.
+
+    Returns:
+      The initialized ChaCha cipher state for the given parameters.
+    """
 
     if isinstance(key, bytes):
         if len(key) not in [16, 32]:
             raise ValueError("key must consist of 16 or 32 bytes")
-        key = from_buffer(key)
+        key = _from_buffer(key)
     elif jax.lax.dtype(key) != ChaChaStateElementType or jnp.size(key) not in [4, 8]:
         raise ValueError("key must be a buffer or an array of 32-bit unsinged integers, totalling to 16 or 32 bytes!")
 
     if isinstance(iv, bytes):
-        iv = from_buffer(iv)
+        iv = _from_buffer(iv)
     if jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != 3:
         raise ValueError("iv must be three 32-bit unsigned integers or a buffer of 12 bytes!")
 
@@ -134,38 +147,98 @@ def setup_state(
     return state
 
 
-def from_buffer(buffer: bytes) -> jnp.ndarray:
+def _from_buffer(buffer: bytes) -> jnp.ndarray:
     return jnp.array(np.frombuffer(buffer, dtype=np.uint32))
 
 
 def increase_counter(state: ChaChaState, amount: Union[int, jnp.ndarray]) -> ChaChaState:
+    """ Increases the counter value in a given ChaCha cipher state by the given amount.
+
+    Args:
+      state: The ChaCha cipher state.
+      amount: The amount by which to increase the counter.
+
+    Returns:
+      The new ChaCha cipher state with increased counter value.
+    """
     return jax.ops.index_add(state, (3, 0), amount, True, True)
 
 
 def increment_counter(state: ChaChaState) -> ChaChaState:
+    """ Increments the counter value in a given ChaCha cipher state.
+
+    Args:
+      state: The ChaCha cipher state.
+
+    Returns:
+      The new ChaCha cipher state with incremented counter value.
+    """
     return increase_counter(state, 1)
 
 
 def set_counter(state: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaState:
+    """ Sets the counter value in a given ChaCha cipher state to the given value.
+
+    Args:
+      state: The ChaCha cipher state.
+      counter: The new counter value.
+
+    Returns:
+      The new ChaCha cipher state with the given counter value.
+    """
     return jax.ops.index_update(state, (3, 0), counter, True, True)
 
 
 def get_counter(state: ChaChaState) -> int:
+    """ Returns the counter value of a given ChaCha cipher state.
+
+    Args:
+      state: The ChaCha cipher state.
+
+    Returns:
+      The counter value of the given state.
+    """
     return int(state[3, 0])
 
 
 def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
+    """ Sets the nonce/IV of the given ChaCha cipher state.
+
+    Args:
+      state: The ChaCha cipher state.
+      nonce: A 96 bit nonce given as an array of three 32 bit integers.
+
+    Returns:
+      The new ChaCha cipher state with the given nonce value.
+    """
     assert jnp.shape(nonce) == (3,)
     assert jnp.dtype(state) == jnp.dtype(nonce)
     return jax.ops.index_update(state, jax.ops.index[3, 1:4], nonce, True, True)
 
 
 def get_nonce(state: ChaChaState) -> jnp.ndarray:
+    """ Returns the nonce/IV of the given ChaCha cipher state.
+
+    Args:
+      state: The ChaCha cipher state.
+
+    Returns:
+      An array of three 32 bit integers containing the value of the nonce/IV.
+    """
     return state[3, 1:3]
 
 
 def serialize(state: ChaChaState, out_dtype: Type = jnp.uint8) -> jnp.ndarray:
-    """ Converts a ChaCha state into a linear array of the specified type. """
+    """Converts a ChaCha state into a linear array of the specified type.
+
+    Args:
+      state: The ChaCha cipher state.
+      out_dtype: The desired `numpy.dtype` of the output array.
+
+    Returns:
+      A one-dimensional array with the given type, containing a serialized
+      representation of the ChaCha cipher state.
+    """
     assert jax.lax.dtype(state) == ChaChaStateElementType
     type_info = jnp.iinfo(out_dtype)
 
@@ -189,9 +262,17 @@ def serialize(state: ChaChaState, out_dtype: Type = jnp.uint8) -> jnp.ndarray:
 
 
 def encrypt(message: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
-    """ Encrypts a message of arbitrary length with the given ChaCha state.
+    """Encrypts a message of arbitrary length with the given ChaCha cipher state.
 
-    Also returns the new state."""
+    Args:
+      message: The message to encrypt as bytes object.
+      state: The ChaCha cipher state used for encrypting the message.
+
+    Returns:
+      A tuple consisting of:
+      - The ciphertext resulting from the encryption as a bytes object.
+      - The ChaCha cipher with updated counter value after the encryption.
+    """
     block_nr = 0
     ciphertext = b''
     ChaChaStateByteSize = ChaChaStateBitSize >> 3
@@ -218,7 +299,16 @@ def encrypt_with_key(
     ) -> Tuple[bytes, int]:  # noqa:E121,E125
     """ Encrypts a message of arbitrary length with given key, IV and counter.
 
-    Also returns the new counter value.
+    Args:
+      message: The message to encrypt as bytes object.
+      key: A 256 bit key, either as a bytes object or a size 32 array of 32 bit integers.
+      iv: A 96 bit initialization vector / nonce, either as a bytes object or a size 3 array of 32 bit integers.
+      counter: An optional initial counter values. Defaults to 0.
+
+    Returns:
+      A tuple consisting of:
+      - The ciphertext resulting from the encryption as a bytes object.
+      - The counter value after the encryption.
     """
 
     state = setup_state(key, iv, counter)
@@ -228,9 +318,17 @@ def encrypt_with_key(
 
 
 def decrypt(ciphertext: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
-    """ Decrypts a ciphertext of arbitrary length with the given ChaCha state.
+    """Decrypts a ciphertext of arbitrary length with the given ChaCha cipher state.
 
-    Also returns the new state."""
+    Args:
+      ciphertext: The ciphertext to decrypt as bytes object.
+      state: The ChaCha cipher state used for decrypting the message.
+
+    Returns:
+      A tuple consisting of:
+      - The plaintext resulting from the decryption as a bytes object.
+      - The ChaCha cipher with updated counter value after the decryption.
+    """
 
     return encrypt(ciphertext, state)
 
@@ -243,5 +341,16 @@ def decrypt_with_key(
     ) -> bytes:  # noqa:E121,E125
     """ Decrypts a ciphertext of arbitrary length with given key, IV and counter.
 
-    Also returns the new counter value."""
+
+    Args:
+      ciphertext: The ciphertext to decrypt as bytes object.
+      key: A 256 bit key, either as a bytes object or a size 32 array of 32 bit integers.
+      iv: A 96 bit initialization vector / nonce, either as a bytes object or a size 3 array of 32 bit integers.
+      counter: An optional initial counter values. Defaults to 0.
+
+    Returns:
+      A tuple consisting of:
+      - The plaintext resulting from the decryption as a bytes object.
+      - The counter value after the decryption.
+    """
     return encrypt_with_key(ciphertext, key, iv, counter)

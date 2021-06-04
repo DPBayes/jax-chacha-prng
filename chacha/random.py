@@ -1,6 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
+
+""" A cryptographically secure pseudo-random number generator for JAX.
+
+This CSPRNG is based on the 20-round ChaCha cipher and offers the same API
+as the default JAX PRNG.
+
+Its randomness state (the PRNGKey, in JAX lingo) is simply the ChaCha cipher state.
+
+The following invariants hold:
+- The 256 bit key provides base randomness that is expanded by PRNG; it given by the user as seed to function `PRNGKey`
+- The 32 bit counter in a randomness state is always set to zero; randomness expander such as `random_bits` increment
+    it internally to provide streams of randomness.
+- The 96 bit IV is used for randomness state splits using the `split` function; splitting results in a new state
+    that maintains the same cipher key, a counter value of zero and a randomly sampled IV expanded from the key that
+    was split.
+"""
+
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -10,16 +27,18 @@ from functools import partial
 
 import chacha.cipher as cc
 
-################# chacha cipher based rng #########
-
-## invariant for PRNG
-## - 32 bit counter always starts from zero; used to increment for single calls to obtain arbitrary many random bits
-##   from current rng_key
-## - 96 bit IV used for PRNG splits -> splitting always resets counter
-## - 256 bit random key unchanged; base randomness that is expanded by PRNG
-
 
 def random_bits(rng_key, bit_width, shape):
+    """ Generate an array containing random integers.
+
+    Args:
+      rng_key: The PRNGKey object from which to generate random bits.
+      bit_width: The number of bits in each element of the output.
+      shape: The shape of the output array.
+
+    Returns:
+      An array of the given shape containing uniformly random unsigned integers with the given bit width.
+    """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
     size = np.prod(shape)
@@ -87,19 +106,30 @@ def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     )
 
 
-def PRNGKey(key: typing.Union[jnp.array, int, bytes]) -> jnp.array:
-    if isinstance(key, int):
-        key = key % (1 << cc.ChaChaKeySizeInBits)
-        key = key.to_bytes(cc.ChaChaKeySizeInBytes, byteorder='big', signed=False)
-    if isinstance(key, bytes):
-        if len(key) > cc.ChaChaKeySizeInBytes:
-            raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
-        key = np.frombuffer(key, dtype=np.uint8)
-        buf = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
-        buf[:len(key)] = key
-        key = buf.tobytes()
+def PRNGKey(seed: typing.Union[jnp.array, int, bytes]) -> jnp.array:
+    """ Creates a cryptographically secure pseudo-random number generator (PRNG) key given a seed.
 
-        key = cc.from_buffer(key)
+    The seed is used as a cryptographic key to expand into randomness. Its length in bits
+    determines the cryptographic strength of the generated random numbers. It can be up to 256 bit long.
+
+    Args:
+      seed: The seed, either as an integer or a bytes object.
+
+    Returns:
+      An PRNG key, which is equivalent to a ChaChaState, which in turn is a 4x4 array of 32 bit integers.
+    """
+    if isinstance(seed, int):
+        seed = seed % (1 << cc.ChaChaKeySizeInBits)
+        seed = seed.to_bytes(cc.ChaChaKeySizeInBytes, byteorder='big', signed=False)
+    if isinstance(seed, bytes):
+        if len(seed) > cc.ChaChaKeySizeInBytes:
+            raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
+        seed = np.frombuffer(seed, dtype=np.uint8)
+        key = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
+        key[:len(seed)] = seed
+        key = key.tobytes()
+
+        key = cc._from_buffer(key)
 
     key = jnp.array(key).flatten()[0:8]
     key = jnp.pad(key, (8 - jnp.size(key), 0), mode='constant')
@@ -107,38 +137,38 @@ def PRNGKey(key: typing.Union[jnp.array, int, bytes]) -> jnp.array:
     return cc.setup_state(key, iv, jnp.zeros(1, dtype=jnp.uint32))
 
 
-def split(rng_key: jnp.ndarray, num: int = 2) -> jnp.ndarray:
+def split(rng_key: jnp.ndarray, num: typing.Optional[int] = 2) -> jnp.ndarray:
     """Splits a PRNG key into `num` new keys by adding a leading axis.
 
     Args:
-        key: a PRNGKey (an array with shape (4,4) and dtype uint32).
-        num: optional, a positive integer indicating the number of keys to produce
-        (default 2).
+      key: A PRNGKey (an array with shape (4,4) and dtype uint32).
+      num: An optional positive integer indicating the number of keys to produce.
 
     Returns:
-        An array with shape (num, 4, 4) and dtype uint32 representing `num` new keys.
+      An array with shape (num, 4, 4) and dtype uint32 representing `num` new PRNG keys.
     """
     return _split(rng_key, int(num))
 
 
-def uniform(key: jnp.ndarray,
-            shape: typing.Sequence[int] = (),
-            dtype: np.dtype = jnp.float64,
-            minval: typing.Union[float, jnp.ndarray] = 0.,
-            maxval: typing.Union[float, jnp.ndarray] = 1.) -> jnp.ndarray:
-    """Sample uniform random values in [minval, maxval) with given shape/dtype.
+def uniform(
+        key: jnp.ndarray,
+        shape: typing.Optional[typing.Sequence[int]] = (),
+        dtype: typing.Optional[np.dtype] = jnp.float64,
+        minval: typing.Optional[typing.Union[float, jnp.ndarray]] = 0.,
+        maxval: typing.Optional[typing.Union[float, jnp.ndarray]] = 1.
+    ) -> jnp.ndarray:  # noqa:E121,E125
+    """Samples uniform random values in [minval, maxval) with given shape/dtype.
 
     Args:
-        key: a PRNGKey used as the random key.
-        shape: optional, a tuple of nonnegative integers representing the result
-        shape. Default ().
-        dtype: optional, a float dtype for the returned values (default float64 if
-        jax_enable_x64 is true, otherwise float32).
-        minval: optional, a minimum (inclusive) value broadcast-compatible with shape for the range (default 0).
-        maxval: optional, a maximum (exclusive) value broadcast-compatible with shape for the range (default 1).
+      key: The PRNGKey.
+      shape: An optional tuple of nonnegative integers representing the result shape.
+      dtype: An optional float dtype for the returned values (default float64).
+      minval: An ptional minimum (inclusive) value broadcast-compatible with shape for the range (default 0).
+      maxval: An optional maximum (exclusive) value broadcast-compatible with shape for the range (default 1).
 
     Returns:
-        A random array with the specified shape and dtype.
+      A random array with the specified shape and dtype.
+
     """
     if not jax.dtypes.issubdtype(dtype, np.floating):
         raise ValueError(f"dtype argument to `uniform` must be a float dtype, "
