@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
 *.vscode*
 *__pycache__*
 rng_testsuite/extern/TestU01*

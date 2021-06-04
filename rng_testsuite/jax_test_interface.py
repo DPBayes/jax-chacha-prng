@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
 """ Interfacing module for accessing JAX's default RNG implementation from TestU01 framework. """
 
 import jax.config

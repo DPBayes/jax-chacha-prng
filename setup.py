@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
+
 import setuptools
 
 with open("README.md", "r") as f:
@@ -29,8 +32,10 @@ setuptools.setup(
     },
     classifiers=[
         "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: Apache Software License"
         "Operating System :: OS Independent",
         "Development Status :: 3 - Alpha",
-        "Intended Audience :: Science/Research"
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers"
     ],
 )

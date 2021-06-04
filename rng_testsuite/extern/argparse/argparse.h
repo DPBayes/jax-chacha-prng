@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception OR GPL-3.0-only
+// SPDX-FileCopyrightText: © Jesse Laning
+
 /**
  * License: Apache 2.0 with LLVM Exception or GPL v3
  *

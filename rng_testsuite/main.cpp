@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
 #include "testu01_wrapper.hpp" // needs to go first because it tries to redefine number types
 
 #include <string>

@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
+// Simple C++ Wrapper for Python objects
+
 #pragma once
 
 #define PY_SSIZE_T_CLEAN

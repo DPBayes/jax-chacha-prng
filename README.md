@@ -68,4 +68,8 @@ Version numbers adhere to [Semantic Versioning](https://semver.org/). Changes be
 
 ## License
 
-This software is currently only available for internal use at Aalto University.
+The software is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+You can find the full license text in `LICENSES/Apache-2.0.txt`.
+
+Single files included from third parties may be under a different license, which is annotated in the file
+itself and a full license text included in the `LICENSES` directory. The repository is fully [REUSE-compliant](https://reuse.software/).

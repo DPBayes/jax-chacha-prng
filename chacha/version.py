@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
+
 MAJOR_VERSION = 0
 MINOR_VERSION = 1
 PATCH_VERSION = 0

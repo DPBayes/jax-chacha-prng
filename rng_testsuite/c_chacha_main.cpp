@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
 #include "chacha_reference/chacharng.hpp"
 #include "argparse.h"
 

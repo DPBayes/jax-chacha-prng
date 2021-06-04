@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
 #include "python_rng.hpp"
 
 PythonRNGFunctions::PRNGContext PythonRNGFunctions::prngKey(const std::vector<uint8_t>& seed) const

@@ -1,3 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
+// C++ interface for pseudo-random number generators written in Python, defined in a Python module that exports:
+// - create_context(seed: bytes) -> Any :
+//          Initialises and returns PRNG state
+// - uniform_and_state_update(state: Any, count: int) -> Tuple[Sequence[float], Any]:
+//          Accepts a PRNG state and returns count many double-precision floating points in [0,1) as well as an updated
+//          state.
+// - bits_and_state_update(state: Any, count: int) -> Tuple[Sequence[int], Any]:
+//          Accepts a PRNG state and returns count many 32 bit integers as well as an updated state.
+// - to_string(state: Any) -> str:
+//          Returns a string representation of the state (for debugging).
+
 #pragma once
 
 #include "python_wrapper.hpp"

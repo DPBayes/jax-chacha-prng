@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
+
 cmake_minimum_required(VERSION 3.12.0)
 project(rng_tests VERSION 0.1.0 LANGUAGES C CXX)
 

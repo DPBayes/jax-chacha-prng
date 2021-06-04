@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
+// Wrapper for Bernstein's ChaCha reference implementation for TestU01 framework.
+
 #pragma once
 
 extern "C" {

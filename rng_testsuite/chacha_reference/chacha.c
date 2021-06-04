@@ -3,6 +3,8 @@ chacha-ref.c version 20080118
 D. J. Bernstein
 Public domain.
 */
+// SPDX-License-Identifier: CC0-1.0
+// SPDX-FileCopyrightText: Daniel J. Bernstein
 
 #include "ecrypt-sync.h"
 

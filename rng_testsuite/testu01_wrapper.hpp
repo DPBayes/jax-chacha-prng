@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2021 Aalto University
+
+// Wrapper that creates a unif01_Gen pseudo-random number generator structure for the TestU01 framework
+// from a PythonRNGFunctions class (see python_rng.hpp).
+
 #pragma once
 
 extern "C" {
