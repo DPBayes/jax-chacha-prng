@@ -24,6 +24,14 @@ ChaChaKeySizeInBits = 256
 ChaChaKeySizeInBytes = ChaChaKeySizeInBits >> 3
 ChaChaKeySizeInWords = ChaChaKeySizeInBytes >> 2
 
+ChaChaNonceSizeInBits = 96
+ChaChaNonceSizeInBytes = ChaChaNonceSizeInBits >> 3
+ChaChaNonceSizeInWords = ChaChaNonceSizeInBytes >> 2
+
+ChaChaCounterSizeInBits = 32
+ChaChaCounterSizeInBytes = ChaChaCounterSizeInBits >> 3
+ChaChaCounterSizeInWords = ChaChaCounterSizeInBytes >> 2
+
 
 #### CORE CHACHA ROUND FUNCTIONS ####
 
@@ -129,13 +137,15 @@ def setup_state(
         raise ValueError("key must be a buffer or an array of 32-bit unsinged integers, totalling to 16 or 32 bytes!")
 
     if isinstance(iv, bytes):
+        if len(iv) != ChaChaNonceSizeInBytes:
+            raise ValueError("iv must consits of 12 bytes")
         iv = _from_buffer(iv)
-    if jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != 3:
+    if jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != ChaChaNonceSizeInWords:
         raise ValueError("iv must be three 32-bit unsigned integers or a buffer of 12 bytes!")
 
     if isinstance(counter, int):
         counter = jnp.uint32(counter)
-    if jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != 1:
+    if jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != ChaChaCounterSizeInWords:
         raise ValueError("counter must be a single 32-bit unsigned integer!")
 
     key_bits = key.size * 4
@@ -225,7 +235,7 @@ def get_nonce(state: ChaChaState) -> jnp.ndarray:
     Returns:
       An array of three 32 bit integers containing the value of the nonce/IV.
     """
-    return state[3, 1:3]
+    return state[3, 1:4]
 
 
 def serialize(state: ChaChaState, out_dtype: Type = jnp.uint8) -> jnp.ndarray:

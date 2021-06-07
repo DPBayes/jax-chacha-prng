@@ -76,6 +76,7 @@ def _split(rng_key, num) -> jnp.ndarray:
 def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     _check_shape("uniform", shape)
     if not jnp.issubdtype(dtype, np.floating):
+        print("encountered exc in _uniform")
         raise TypeError("uniform only accepts floating point dtypes.")
 
     minval = jax.lax.convert_element_type(minval, dtype)
@@ -86,8 +87,7 @@ def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     finfo = jnp.finfo(dtype)
     nbits, nmant = finfo.bits, finfo.nmant
 
-    if nbits not in (16, 32, 64):
-        raise TypeError("uniform only accepts 32- or 64-bit dtypes.")
+    assert nbits in (16, 32, 64)
 
     bits = random_bits(rng_key, nbits, shape)
 
@@ -171,8 +171,7 @@ def uniform(
 
     """
     if not jax.dtypes.issubdtype(dtype, np.floating):
-        raise ValueError(f"dtype argument to `uniform` must be a float dtype, "
-                         f"got {dtype}")
+        raise TypeError(f"dtype argument to `uniform` must be a float dtype, got {dtype}")
     dtype = jax.dtypes.canonicalize_dtype(dtype)
     shape = jax.abstract_arrays.canonicalize_shape(shape)
     return _uniform(key, shape, dtype, minval, maxval)

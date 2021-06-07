@@ -7,7 +7,8 @@ import numpy as np
 import jax.numpy as jnp
 
 from chacha.cipher import \
-    encrypt_with_key, setup_state, decrypt_with_key, set_nonce, get_counter, increment_counter, serialize
+    setup_state, encrypt, decrypt, encrypt_with_key, decrypt_with_key, set_nonce, get_nonce, get_counter,\
+    increment_counter, serialize
 from chacha.cipher import _block, _quarterround
 
 
@@ -81,6 +82,96 @@ class ChaCha20CipherTests(unittest.TestCase):
 
         self.assertTrue(jnp.all(expected == state), "setup_state function does not give correct output on test vector")
 
+    def test_setup_state_128bit_key(self) -> None:
+        key = b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = jnp.uint32(1)
+        state = setup_state(key, iv, counter)
+
+        expected = jnp.array([
+            [0x61707865, 0x3120646e, 0x79622d36, 0x6b206574],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x00000001, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        self.assertTrue(jnp.all(expected == state), "setup_state function does not give correct output for 128 bit key")
+
+    def test_setup_state_invalid_key_length_bytes(self) -> None:
+        key = b'\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = 1
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_key_length_array(self) -> None:
+        key = jnp.array([0, 1, 2], dtype=jnp.uint32)
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = 1
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_key_dtype_array(self) -> None:
+        key = jnp.array([0, 1, 2, 3], dtype=jnp.float32)
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = 1
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_iv_length_bytes(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00'
+        counter = jnp.uint32(1)
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_iv_length_array(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = jnp.array([0, 1], dtype=jnp.uint32)
+        counter = jnp.uint32(1)
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_iv_dtype_array(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = jnp.array([0, 1, 2], dtype=jnp.float32)
+        counter = jnp.uint32(1)
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_counter_type(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = 1.0
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_counter_dtype_array(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = jnp.array([1.0])
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
+    def test_setup_state_invalid_counter_length_array(self) -> None:
+        key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\
+              b'\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00'
+        counter = jnp.array([1, 2], dtype=jnp.uint32)
+
+        with self.assertRaises(ValueError):
+            setup_state(key, iv, counter)
+
     def test_increment_counter(self) -> None:
         state = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
@@ -110,7 +201,7 @@ class ChaCha20CipherTests(unittest.TestCase):
         ctr = get_counter(state)
         self.assertEqual(1, ctr)
 
-    def test_set_nonce(self) -> None:
+    def test_set_get_nonce(self) -> None:
         state = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
             [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
@@ -129,6 +220,69 @@ class ChaCha20CipherTests(unittest.TestCase):
         ], dtype=jnp.uint32)
 
         self.assertTrue(np.all(expected_state == new_state))
+
+        gotten_nonce = get_nonce(new_state)
+        self.assertTrue(np.all(nonce == gotten_nonce))
+
+    def test_encrypt(self) -> None:
+        """ Test vector 2.4.2 from RFC 7539. """
+        state = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x00000001, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        expected_state = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x00000003, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        message = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "\
+                  "sunscreen would be it.".encode("ascii")
+        expected = \
+            b'\x6e\x2e\x35\x9a\x25\x68\xf9\x80\x41\xba\x07\x28\xdd\x0d\x69\x81\xe9\x7e\x7a\xec\x1d\x43\x60\xc2\x0a\x27'\
+            b'\xaf\xcc\xfd\x9f\xae\x0b\xf9\x1b\x65\xc5\x52\x47\x33\xab\x8f\x59\x3d\xab\xcd\x62\xb3\x57\x16\x39\xd6\x24'\
+            b'\xe6\x51\x52\xab\x8f\x53\x0c\x35\x9f\x08\x61\xd8\x07\xca\x0d\xbf\x50\x0d\x6a\x61\x56\xa3\x8e\x08\x8a\x22'\
+            b'\xb6\x5e\x52\xbc\x51\x4d\x16\xcc\xf8\x06\x81\x8c\xe9\x1a\xb7\x79\x37\x36\x5a\xf9\x0b\xbf\x74\xa3\x5b\xe6'\
+            b'\xb4\x0b\x8e\xed\xf2\x78\x5e\x42\x87\x4d'
+
+        ciphertext, new_state = encrypt(message, state)
+
+        self.assertTrue(np.all(expected_state == new_state))
+        self.assertEqual(len(expected), len(ciphertext), "encrypt function gives ciphertext of wrong length")
+        self.assertEqual(expected, ciphertext, "encrypt function does not give correct output on test vector")
+
+    def test_decrypt(self) -> None:
+        state = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x00000001, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        expected_state = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0x00000003, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        message = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "\
+            "sunscreen would be it.".encode("ascii")
+        ciphertext = \
+            b'\x6e\x2e\x35\x9a\x25\x68\xf9\x80\x41\xba\x07\x28\xdd\x0d\x69\x81\xe9\x7e\x7a\xec\x1d\x43\x60\xc2\x0a\x27'\
+            b'\xaf\xcc\xfd\x9f\xae\x0b\xf9\x1b\x65\xc5\x52\x47\x33\xab\x8f\x59\x3d\xab\xcd\x62\xb3\x57\x16\x39\xd6\x24'\
+            b'\xe6\x51\x52\xab\x8f\x53\x0c\x35\x9f\x08\x61\xd8\x07\xca\x0d\xbf\x50\x0d\x6a\x61\x56\xa3\x8e\x08\x8a\x22'\
+            b'\xb6\x5e\x52\xbc\x51\x4d\x16\xcc\xf8\x06\x81\x8c\xe9\x1a\xb7\x79\x37\x36\x5a\xf9\x0b\xbf\x74\xa3\x5b\xe6'\
+            b'\xb4\x0b\x8e\xed\xf2\x78\x5e\x42\x87\x4d'
+
+        recovered_message, new_state = decrypt(ciphertext, state)
+
+        self.assertTrue(np.all(expected_state == new_state))
+        self.assertEqual(message, recovered_message)
 
     def test_encrypt_with_key(self) -> None:
         """ Test vector 2.4.2 from RFC 7539. """
@@ -162,8 +316,13 @@ class ChaCha20CipherTests(unittest.TestCase):
 
         message = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "\
             "sunscreen would be it.".encode("ascii")
+        ciphertext = \
+            b'\x6e\x2e\x35\x9a\x25\x68\xf9\x80\x41\xba\x07\x28\xdd\x0d\x69\x81\xe9\x7e\x7a\xec\x1d\x43\x60\xc2\x0a\x27'\
+            b'\xaf\xcc\xfd\x9f\xae\x0b\xf9\x1b\x65\xc5\x52\x47\x33\xab\x8f\x59\x3d\xab\xcd\x62\xb3\x57\x16\x39\xd6\x24'\
+            b'\xe6\x51\x52\xab\x8f\x53\x0c\x35\x9f\x08\x61\xd8\x07\xca\x0d\xbf\x50\x0d\x6a\x61\x56\xa3\x8e\x08\x8a\x22'\
+            b'\xb6\x5e\x52\xbc\x51\x4d\x16\xcc\xf8\x06\x81\x8c\xe9\x1a\xb7\x79\x37\x36\x5a\xf9\x0b\xbf\x74\xa3\x5b\xe6'\
+            b'\xb4\x0b\x8e\xed\xf2\x78\x5e\x42\x87\x4d'
 
-        ciphertext, _ = encrypt_with_key(message, key, iv, counter)
         recovered_message, new_counter = decrypt_with_key(ciphertext, key, iv, counter)
 
         self.assertEqual(expected_counter, new_counter)
