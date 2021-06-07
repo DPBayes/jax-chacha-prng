@@ -27,8 +27,10 @@ from functools import partial
 
 import chacha.cipher as cc
 
+RNGState = cc.ChaChaState
 
-def random_bits(rng_key, bit_width, shape):
+
+def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) -> jnp.ndarray:
     """ Generate an array containing random integers.
 
     Args:
@@ -62,10 +64,10 @@ def random_bits(rng_key, bit_width, shape):
 
 @partial(jax.jit, static_argnums=(1,))
 def _split(rng_key, num) -> jnp.ndarray:
-    ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, 3))
+    ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, cc.ChaChaNonceSizeInWords))
 
     def make_rng_key(nonce):
-        assert jnp.shape(nonce) == (3,)
+        assert jnp.shape(nonce) == (cc.ChaChaNonceSizeInWords,)
         assert jnp.dtype(nonce) == cc.ChaChaStateElementType
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
@@ -106,7 +108,7 @@ def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     )
 
 
-def PRNGKey(seed: typing.Union[jnp.array, int, bytes]) -> jnp.array:
+def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
     """ Creates a cryptographically secure pseudo-random number generator (PRNG) key given a seed.
 
     The seed is used as a cryptographic key to expand into randomness. Its length in bits
@@ -124,20 +126,20 @@ def PRNGKey(seed: typing.Union[jnp.array, int, bytes]) -> jnp.array:
     if isinstance(seed, bytes):
         if len(seed) > cc.ChaChaKeySizeInBytes:
             raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
-        seed = np.frombuffer(seed, dtype=np.uint8)
-        key = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
-        key[:len(seed)] = seed
-        key = key.tobytes()
+        seed_buffer = np.frombuffer(seed, dtype=np.uint8)
+        key_buffer = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
+        key_buffer[:len(seed_buffer)] = seed_buffer
+        key_buffer = key_buffer.view(jnp.uint32)
+    else:
+        raise TypeError(f"seed must be either an array, an integer or a bytes objects; got {type(seed)}.")
 
-        key = cc._from_buffer(key)
-
-    key = jnp.array(key).flatten()[0:8]
+    key = jnp.array(key_buffer).flatten()[0:8]
     key = jnp.pad(key, (8 - jnp.size(key), 0), mode='constant')
     iv = jnp.zeros(3, dtype=jnp.uint32)
     return cc.setup_state(key, iv, jnp.zeros(1, dtype=jnp.uint32))
 
 
-def split(rng_key: jnp.ndarray, num: typing.Optional[int] = 2) -> jnp.ndarray:
+def split(rng_key: RNGState, num: int = 2) -> typing.Sequence[RNGState]:
     """Splits a PRNG key into `num` new keys by adding a leading axis.
 
     Args:
@@ -151,11 +153,11 @@ def split(rng_key: jnp.ndarray, num: typing.Optional[int] = 2) -> jnp.ndarray:
 
 
 def uniform(
-        key: jnp.ndarray,
-        shape: typing.Optional[typing.Sequence[int]] = (),
-        dtype: typing.Optional[np.dtype] = jnp.float64,
-        minval: typing.Optional[typing.Union[float, jnp.ndarray]] = 0.,
-        maxval: typing.Optional[typing.Union[float, jnp.ndarray]] = 1.
+        key: RNGState,
+        shape: typing.Sequence[int] = (),
+        dtype: np.dtype = jnp.float64,
+        minval: typing.Union[float, jnp.ndarray] = 0.,
+        maxval: typing.Union[float, jnp.ndarray] = 1.
     ) -> jnp.ndarray:  # noqa:E121,E125
     """Samples uniform random values in [minval, maxval) with given shape/dtype.
 

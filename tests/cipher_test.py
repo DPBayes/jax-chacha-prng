@@ -7,9 +7,27 @@ import numpy as np
 import jax.numpy as jnp
 
 from chacha.cipher import \
-    setup_state, encrypt, decrypt, encrypt_with_key, decrypt_with_key, set_nonce, get_nonce, get_counter,\
-    increment_counter, serialize
+    ChaChaState, ChaChaStateElementType, ChaChaStateShape, setup_state, encrypt, decrypt, encrypt_with_key,\
+    decrypt_with_key, set_nonce, get_nonce, get_counter, increment_counter, serialize
 from chacha.cipher import _block, _quarterround
+
+
+class ChaChaStateTests(unittest.TestCase):
+
+    def test_construction(self) -> None:
+        data = jnp.zeros(ChaChaStateShape, dtype=ChaChaStateElementType)
+        state = ChaChaState(data)
+        self.assertTrue(jnp.all(data == state))
+
+    def test_invalid_shape(self) -> None:
+        data = jnp.array([1, 2, 3, 4, 5], dtype=ChaChaStateElementType)
+        with self.assertRaises(ValueError):
+            ChaChaState(data)
+
+    def test_invalid_dtype(self) -> None:
+        data = jnp.zeros(ChaChaStateShape, dtype=jnp.uint16)
+        with self.assertRaises(TypeError):
+            ChaChaState(data)
 
 
 class ChaCha20CipherTests(unittest.TestCase):
@@ -152,7 +170,7 @@ class ChaCha20CipherTests(unittest.TestCase):
         counter = 1.0
 
         with self.assertRaises(ValueError):
-            setup_state(key, iv, counter)
+            setup_state(key, iv, counter)  # type: ignore # ignore mypy typre error for float here
 
     def test_setup_state_invalid_counter_dtype_array(self) -> None:
         key = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18'\

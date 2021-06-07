@@ -130,6 +130,12 @@ class ChaChaRNGTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PRNGKey(x)
 
+    def test_PRNGKey_invalid_seed_type(self) -> None:
+        x = 8.0
+
+        with self.assertRaises(TypeError):
+            PRNGKey(x)  # type: ignore # ignore mypy error for invalid type here
+
     def test_uniform(self) -> None:
         """ verifies that the outputs of uniform have correct type, shape and bounds.
 

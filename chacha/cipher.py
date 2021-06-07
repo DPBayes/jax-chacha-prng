@@ -10,10 +10,9 @@ The implementation follows a slight variation specified in https://tools.ietf.or
 import jax.numpy as jnp
 import numpy as np
 import jax
-from typing import Union, Type, Optional, Tuple
-np.set_printoptions(formatter={'int': hex})
+from typing import Callable, Union, Type, Tuple
+import functools
 
-ChaChaState = jnp.array
 ChaChaStateShape = (4, 4)
 ChaChaStateElementCount = np.prod(ChaChaStateShape)
 ChaChaStateElementType = jnp.uint32
@@ -33,9 +32,36 @@ ChaChaCounterSizeInBytes = ChaChaCounterSizeInBits >> 3
 ChaChaCounterSizeInWords = ChaChaCounterSizeInBytes >> 2
 
 
+class ChaChaState(jnp.ndarray):
+
+    def __new__(cls, *args, **kwargs):
+        arr = jnp.array(*args, **kwargs)
+        if arr.shape != ChaChaStateShape:
+            raise ValueError(f"ChaChaState must have shape {ChaChaStateShape}; got {arr.shape}.")
+        if arr.dtype != ChaChaStateElementType:
+            raise TypeError(f"ChaChaState must have dtype {ChaChaStateElementType}; got {arr.dtype}.")
+        return arr
+
+
+def state_verified(state_arg_pos: int = 0) -> Callable:
+    """ Decorator that ensures that a valid ChaChaState is passed into the function.
+
+    Args:
+      state_arg_pos: The position of the state argument in the decorated function's argument list.
+    """
+    def inner_decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapped_func(*args, **kwargs):
+            args = list(args)
+            args[state_arg_pos] = ChaChaState(args[state_arg_pos])
+            return func(*args, **kwargs)
+        return wrapped_func
+    return inner_decorator
+
+
 #### CORE CHACHA ROUND FUNCTIONS ####
 
-def rotate_left(x: jnp.array, num_bits: int) -> jnp.array:
+def rotate_left(x: jnp.ndarray, num_bits: int) -> jnp.ndarray:
     dtype = jax.lax.dtype(x)
     issubclass(dtype.type, jnp.unsignedinteger)
     type_info = jnp.iinfo(dtype)
@@ -43,7 +69,7 @@ def rotate_left(x: jnp.array, num_bits: int) -> jnp.array:
 
 
 @jax.jit
-def _quarterround(x: jnp.array) -> jnp.array:
+def _quarterround(x: jnp.ndarray) -> jnp.ndarray:
     assert x.dtype == ChaChaStateElementType
     assert x.size == 4
     a, b, c, d = x[0], x[1], x[2], x[3]
@@ -70,7 +96,7 @@ def _double_round(state: ChaChaState) -> ChaChaState:
     qr_vmap = jax.vmap(_quarterround, in_axes=1, out_axes=1)
 
     # quarterround for each column
-    state = qr_vmap(state)
+    state = ChaChaState(qr_vmap(state))
 
     # moving diagonals into columns
     diag_map = jnp.array([
@@ -116,7 +142,7 @@ KEY_GEN_CONSTANTS = {
 def setup_state(
         key: Union[bytes, jnp.ndarray],
         iv: Union[bytes, jnp.ndarray],
-        counter: Optional[Union[int, jnp.ndarray]] = 0
+        counter: Union[int, jnp.ndarray] = 0
     ) -> ChaChaState:  # noqa:E121,E125
     """ Initializes and returns a ChaChaState given key, iv/nonce and an optional initial counter.
 
@@ -132,28 +158,34 @@ def setup_state(
     if isinstance(key, bytes):
         if len(key) not in [16, 32]:
             raise ValueError("key must consist of 16 or 32 bytes")
-        key = _from_buffer(key)
+        key_array = _from_buffer(key)
     elif jax.lax.dtype(key) != ChaChaStateElementType or jnp.size(key) not in [4, 8]:
         raise ValueError("key must be a buffer or an array of 32-bit unsinged integers, totalling to 16 or 32 bytes!")
+    else:
+        assert isinstance(key, jnp.ndarray)
+        key_array = jnp.array(key)
 
     if isinstance(iv, bytes):
         if len(iv) != ChaChaNonceSizeInBytes:
             raise ValueError("iv must consits of 12 bytes")
-        iv = _from_buffer(iv)
-    if jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != ChaChaNonceSizeInWords:
+        iv_array = _from_buffer(iv)
+    elif jax.lax.dtype(iv) != ChaChaStateElementType or jnp.size(iv) != ChaChaNonceSizeInWords:
         raise ValueError("iv must be three 32-bit unsigned integers or a buffer of 12 bytes!")
+    else:
+        assert isinstance(iv, jnp.ndarray)
+        iv_array = iv
 
     if isinstance(counter, int):
         counter = jnp.uint32(counter)
-    if jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != ChaChaCounterSizeInWords:
+    elif jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != ChaChaCounterSizeInWords:
         raise ValueError("counter must be a single 32-bit unsigned integer!")
 
-    key_bits = key.size * 4
+    key_bits = key_array.size * 4
     if key_bits == 16:
-        key = jnp.tile(key, 2)
-    key = key.reshape(2, 4)
-    inputs = jnp.hstack((counter, iv))
-    state = jnp.vstack((KEY_GEN_CONSTANTS[key_bits], key, inputs))
+        key_array = jnp.tile(key_array, 2)
+    key_array = key_array.reshape(2, 4)  # type: ignore # numpy seems confused about this
+    inputs = jnp.hstack((counter, iv_array))
+    state = ChaChaState(jnp.vstack((KEY_GEN_CONSTANTS[key_bits], key_array, inputs)))
     return state
 
 
@@ -161,6 +193,7 @@ def _from_buffer(buffer: bytes) -> jnp.ndarray:
     return jnp.array(np.frombuffer(buffer, dtype=np.uint32))
 
 
+@state_verified()
 def increase_counter(state: ChaChaState, amount: Union[int, jnp.ndarray]) -> ChaChaState:
     """ Increases the counter value in a given ChaCha cipher state by the given amount.
 
@@ -174,6 +207,7 @@ def increase_counter(state: ChaChaState, amount: Union[int, jnp.ndarray]) -> Cha
     return jax.ops.index_add(state, (3, 0), amount, True, True)
 
 
+@state_verified()
 def increment_counter(state: ChaChaState) -> ChaChaState:
     """ Increments the counter value in a given ChaCha cipher state.
 
@@ -186,6 +220,7 @@ def increment_counter(state: ChaChaState) -> ChaChaState:
     return increase_counter(state, 1)
 
 
+@state_verified()
 def set_counter(state: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaState:
     """ Sets the counter value in a given ChaCha cipher state to the given value.
 
@@ -199,6 +234,7 @@ def set_counter(state: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaS
     return jax.ops.index_update(state, (3, 0), counter, True, True)
 
 
+@state_verified()
 def get_counter(state: ChaChaState) -> int:
     """ Returns the counter value of a given ChaCha cipher state.
 
@@ -211,6 +247,7 @@ def get_counter(state: ChaChaState) -> int:
     return int(state[3, 0])
 
 
+@state_verified()
 def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
     """ Sets the nonce/IV of the given ChaCha cipher state.
 
@@ -226,6 +263,7 @@ def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
     return jax.ops.index_update(state, jax.ops.index[3, 1:4], nonce, True, True)
 
 
+@state_verified()
 def get_nonce(state: ChaChaState) -> jnp.ndarray:
     """ Returns the nonce/IV of the given ChaCha cipher state.
 
@@ -238,39 +276,40 @@ def get_nonce(state: ChaChaState) -> jnp.ndarray:
     return state[3, 1:4]
 
 
-def serialize(state: ChaChaState, out_dtype: Type = jnp.uint8) -> jnp.ndarray:
-    """Converts a ChaCha state into a linear array of the specified type.
+def serialize(arr: jnp.ndarray, out_dtype: Type = jnp.uint8) -> jnp.ndarray:
+    """Converts an array of arbitrary shape into a linear array of the specified type.
 
     Args:
-      state: The ChaCha cipher state.
+      arr: An array of arbitrary shape and dtype `uint32`.
       out_dtype: The desired `numpy.dtype` of the output array.
 
     Returns:
       A one-dimensional array with the given type, containing a serialized
-      representation of the ChaCha cipher state.
+      representation of the given array.
     """
-    assert jax.lax.dtype(state) == ChaChaStateElementType
+    assert jax.lax.dtype(arr) == ChaChaStateElementType
     type_info = jnp.iinfo(out_dtype)
 
-    state = state.flatten()
+    serialization = arr.flatten()
     bit_width = type_info.bits
     if bit_width == 64:
-        state = [jax.lax.convert_element_type(x, out_dtype) for x in jnp.split(state, 2)]
-        state = jax.lax.shift_left(state[0], out_dtype(32)) | state[1]
+        serialization = jnp.array([jax.lax.convert_element_type(x, out_dtype) for x in jnp.split(serialization, 2)])
+        serialization = jax.lax.shift_left(serialization[0], out_dtype(32)) | serialization[1]
     elif bit_width in [8, 16]:
-        state = jax.lax.shift_right_logical(
-            jax.lax.broadcast(state, (1,)),
+        serialization = jax.lax.shift_right_logical(
+            jax.lax.broadcast(serialization, (1,)),
             jax.lax.mul(
                 jnp.uint32(bit_width),
                 jax.lax.broadcasted_iota(jnp.uint32, (32 // bit_width, 1), 0)
             )
         )
-        state = jax.lax.reshape(state, (jnp.size(state),), (1, 0))
-        state = jax.lax.convert_element_type(state, out_dtype)
+        serialization = jax.lax.reshape(serialization, (jnp.size(serialization),), (1, 0))
+        serialization = jax.lax.convert_element_type(serialization, out_dtype)
 
-    return state
+    return serialization  # type: ignore # numpy seems confused about np.ndarray and jnp.ndarray here
 
 
+@state_verified(state_arg_pos=1)
 def encrypt(message: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
     """Encrypts a message of arbitrary length with the given ChaCha cipher state.
 
@@ -305,7 +344,7 @@ def encrypt_with_key(
         message: bytes,
         key: Union[bytes, jnp.ndarray],
         iv: Union[bytes, jnp.ndarray],
-        counter: Optional[Union[int, jnp.ndarray]] = 0,
+        counter: Union[int, jnp.ndarray] = 0,
     ) -> Tuple[bytes, int]:  # noqa:E121,E125
     """ Encrypts a message of arbitrary length with given key, IV and counter.
 
@@ -327,6 +366,7 @@ def encrypt_with_key(
     return ciphertext, get_counter(state)
 
 
+@state_verified(state_arg_pos=1)
 def decrypt(ciphertext: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
     """Decrypts a ciphertext of arbitrary length with the given ChaCha cipher state.
 
@@ -347,8 +387,8 @@ def decrypt_with_key(
         ciphertext: bytes,
         key: Union[bytes, jnp.ndarray],
         iv: Union[bytes, jnp.ndarray],
-        counter: Optional[Union[int, jnp.ndarray]] = 0,
-    ) -> bytes:  # noqa:E121,E125
+        counter: Union[int, jnp.ndarray] = 0,
+    ) -> Tuple[bytes, int]:  # noqa:E121,E125
     """ Decrypts a ciphertext of arbitrary length with given key, IV and counter.
 
 
