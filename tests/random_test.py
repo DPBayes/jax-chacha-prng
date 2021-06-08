@@ -153,6 +153,11 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertTrue(np.all(data >= minval))
         self.assertTrue(np.all(data <= maxval))
 
+    def test_uniform_scalar(self) -> None:
+        rng_key = PRNGKey(0)
+        sample = uniform(rng_key)
+        self.assertEqual((), jnp.shape(sample))
+
     def test_random_bits_consistency(self) -> None:
         """ verifies that there is no difference between sampling two blocks directly
             or separately (while manually increasing counter) """
@@ -163,6 +168,12 @@ class ChaChaRNGTests(unittest.TestCase):
         multi_vals_2 = random_bits(rng_key_2, 32, (16,))
         self.assertTrue(np.all(single_vals[:16] == multi_vals_1))
         self.assertTrue(np.all(single_vals[16:] == multi_vals_2))
+
+    def test_random_bits_scalar(self) -> None:
+        rng_key = PRNGKey(0)
+        sample = random_bits(rng_key, 32, ())
+        self.assertEqual((), jnp.shape(sample))
+        self.assertEqual(jnp.uint32, jnp.dtype(sample))
 
     def test_random_bits_invalid_width(self) -> None:
         rng_key = PRNGKey(0)

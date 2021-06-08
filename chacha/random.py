@@ -43,7 +43,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
-    size = np.prod(shape)
+    size = np.prod(shape, dtype=int)
     num_bits = bit_width * size
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
     counters = jax.lax.iota(jnp.uint32, num_blocks)
