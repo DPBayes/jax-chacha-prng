@@ -5,7 +5,7 @@ import unittest
 import testconfig  # noqa
 import jax.numpy as jnp
 
-from chacha.random import split, PRNGKey, random_bits, uniform, _uniform
+from chacha.random import fold_in, split, PRNGKey, random_bits, uniform, _uniform
 from chacha.cipher import set_counter
 import numpy as np
 
@@ -187,6 +187,23 @@ class ChaChaRNGTests(unittest.TestCase):
             _uniform(rng_key, (), jnp.uint8, 0., 1.)
         with self.assertRaises(TypeError):
             uniform(rng_key, (), jnp.uint32)
+
+    def test_fold_in(self) -> None:
+        rng_key = PRNGKey(0)
+        nonzero_data = 7
+        zero_data = 0
+
+        nonzero_new_rng_key = fold_in(rng_key, nonzero_data)
+        zero_new_rng_key = fold_in(rng_key, zero_data)
+
+        # key and constants are same
+        self.assertTrue(np.all(rng_key[0:3] == nonzero_new_rng_key[0:3]))
+        self.assertTrue(np.all(rng_key[0:3] == zero_new_rng_key[0:3]))
+
+        # overall states are different
+        self.assertFalse(np.all(rng_key == nonzero_new_rng_key))
+        self.assertFalse(np.all(rng_key == zero_new_rng_key))
+        self.assertFalse(np.all(zero_new_rng_key == nonzero_new_rng_key))
 
 
 if __name__ == '__main__':

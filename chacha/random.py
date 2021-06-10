@@ -63,7 +63,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
 
 
 @partial(jax.jit, static_argnums=(1,))
-def _split(rng_key, num) -> jnp.ndarray:
+def _split(rng_key, num) -> RNGState:
     ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, cc.ChaChaNonceSizeInWords))
 
     def make_rng_key(nonce):
@@ -72,6 +72,12 @@ def _split(rng_key, num) -> jnp.ndarray:
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
     return jax.vmap(make_rng_key)(ivs)
+
+
+@jax.jit
+def fold_in(rng_key: RNGState, data: int) -> RNGState:
+    iv = cc.get_nonce(cc._block(cc.set_counter(rng_key, data)))
+    return cc.set_counter(cc.set_nonce(rng_key, iv), 0)
 
 
 @partial(jax.jit, static_argnums=(1, 2))
