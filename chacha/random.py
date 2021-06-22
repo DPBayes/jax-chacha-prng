@@ -27,8 +27,23 @@ from functools import partial
 
 import chacha.cipher as cc
 
+# importing canonicalize_shape function
+try:
+    # pre jax v0.2.14 location
+    _canonicalize_shape = jax.abstract_arrays.canonicalize_shape  # type: ignore
+except (AttributeError, ImportError):
+    # post jax v0.2.14 location
+    try:
+        _canonicalize_shape = jax.core.canonicalize_shape
+    except (AttributeError, ImportError):
+        raise ImportError("Cannot import canonicalize_shape routine. "
+                          "You are probably using an incompatible version of jax.")
 
-def random_bits(rng_key, bit_width, shape):
+
+RNGState = cc.ChaChaState
+
+
+def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) -> jnp.ndarray:
     """ Generate an array containing random integers.
 
     Args:
@@ -41,7 +56,7 @@ def random_bits(rng_key, bit_width, shape):
     """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
-    size = np.prod(shape)
+    size = np.prod(shape, dtype=int)
     num_bits = bit_width * size
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
     counters = jax.lax.iota(jnp.uint32, num_blocks)
@@ -61,21 +76,28 @@ def random_bits(rng_key, bit_width, shape):
 
 
 @partial(jax.jit, static_argnums=(1,))
-def _split(rng_key, num) -> jnp.ndarray:
-    ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, 3))
+def _split(rng_key, num) -> RNGState:
+    ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, cc.ChaChaNonceSizeInWords))
 
     def make_rng_key(nonce):
-        assert jnp.shape(nonce) == (3,)
+        assert jnp.shape(nonce) == (cc.ChaChaNonceSizeInWords,)
         assert jnp.dtype(nonce) == cc.ChaChaStateElementType
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
     return jax.vmap(make_rng_key)(ivs)
 
 
+@jax.jit
+def fold_in(rng_key: RNGState, data: int) -> RNGState:
+    iv = cc.get_nonce(cc._block(cc.set_counter(rng_key, data)))
+    return cc.set_counter(cc.set_nonce(rng_key, iv), 0)
+
+
 @partial(jax.jit, static_argnums=(1, 2))
 def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     _check_shape("uniform", shape)
     if not jnp.issubdtype(dtype, np.floating):
+        print("encountered exc in _uniform")
         raise TypeError("uniform only accepts floating point dtypes.")
 
     minval = jax.lax.convert_element_type(minval, dtype)
@@ -86,8 +108,7 @@ def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     finfo = jnp.finfo(dtype)
     nbits, nmant = finfo.bits, finfo.nmant
 
-    if nbits not in (16, 32, 64):
-        raise TypeError("uniform only accepts 32- or 64-bit dtypes.")
+    assert nbits in (16, 32, 64)
 
     bits = random_bits(rng_key, nbits, shape)
 
@@ -106,7 +127,7 @@ def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
     )
 
 
-def PRNGKey(seed: typing.Union[jnp.array, int, bytes]) -> jnp.array:
+def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
     """ Creates a cryptographically secure pseudo-random number generator (PRNG) key given a seed.
 
     The seed is used as a cryptographic key to expand into randomness. Its length in bits
@@ -124,20 +145,20 @@ def PRNGKey(seed: typing.Union[jnp.array, int, bytes]) -> jnp.array:
     if isinstance(seed, bytes):
         if len(seed) > cc.ChaChaKeySizeInBytes:
             raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
-        seed = np.frombuffer(seed, dtype=np.uint8)
-        key = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
-        key[:len(seed)] = seed
-        key = key.tobytes()
+        seed_buffer = np.frombuffer(seed, dtype=np.uint8)
+        key_buffer = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
+        key_buffer[:len(seed_buffer)] = seed_buffer
+        key_buffer = key_buffer.view(jnp.uint32)
+    else:
+        raise TypeError(f"seed must be either an array, an integer or a bytes objects; got {type(seed)}.")
 
-        key = cc._from_buffer(key)
-
-    key = jnp.array(key).flatten()[0:8]
+    key = jnp.array(key_buffer).flatten()[0:8]
     key = jnp.pad(key, (8 - jnp.size(key), 0), mode='constant')
     iv = jnp.zeros(3, dtype=jnp.uint32)
     return cc.setup_state(key, iv, jnp.zeros(1, dtype=jnp.uint32))
 
 
-def split(rng_key: jnp.ndarray, num: typing.Optional[int] = 2) -> jnp.ndarray:
+def split(rng_key: RNGState, num: int = 2) -> typing.Sequence[RNGState]:
     """Splits a PRNG key into `num` new keys by adding a leading axis.
 
     Args:
@@ -151,11 +172,11 @@ def split(rng_key: jnp.ndarray, num: typing.Optional[int] = 2) -> jnp.ndarray:
 
 
 def uniform(
-        key: jnp.ndarray,
-        shape: typing.Optional[typing.Sequence[int]] = (),
-        dtype: typing.Optional[np.dtype] = jnp.float64,
-        minval: typing.Optional[typing.Union[float, jnp.ndarray]] = 0.,
-        maxval: typing.Optional[typing.Union[float, jnp.ndarray]] = 1.
+        key: RNGState,
+        shape: typing.Sequence[int] = (),
+        dtype: np.dtype = jnp.float64,
+        minval: typing.Union[float, jnp.ndarray] = 0.,
+        maxval: typing.Union[float, jnp.ndarray] = 1.
     ) -> jnp.ndarray:  # noqa:E121,E125
     """Samples uniform random values in [minval, maxval) with given shape/dtype.
 
@@ -171,8 +192,7 @@ def uniform(
 
     """
     if not jax.dtypes.issubdtype(dtype, np.floating):
-        raise ValueError(f"dtype argument to `uniform` must be a float dtype, "
-                         f"got {dtype}")
+        raise TypeError(f"dtype argument to `uniform` must be a float dtype, got {dtype}")
     dtype = jax.dtypes.canonicalize_dtype(dtype)
-    shape = jax.abstract_arrays.canonicalize_shape(shape)
+    shape = _canonicalize_shape(shape)
     return _uniform(key, shape, dtype, minval, maxval)

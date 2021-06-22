@@ -5,7 +5,7 @@ import unittest
 import testconfig  # noqa
 import jax.numpy as jnp
 
-from chacha.random import _split, PRNGKey, random_bits, uniform
+from chacha.random import fold_in, split, PRNGKey, random_bits, uniform, _uniform
 from chacha.cipher import set_counter
 import numpy as np
 
@@ -47,7 +47,7 @@ class ChaChaRNGTests(unittest.TestCase):
         ], dtype=jnp.uint32)
 
         # 6 splits require two blocks of randomness
-        first_rng_key, second_rng_key, third_rng_key, fourth_rng_key, fifth_rng_key, sixth_rng_key = _split(rng_key, 6)
+        first_rng_key, second_rng_key, third_rng_key, fourth_rng_key, fifth_rng_key, sixth_rng_key = split(rng_key, 6)
 
         expected_first = jnp.array([
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
@@ -130,6 +130,12 @@ class ChaChaRNGTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PRNGKey(x)
 
+    def test_PRNGKey_invalid_seed_type(self) -> None:
+        x = 8.0
+
+        with self.assertRaises(TypeError):
+            PRNGKey(x)  # type: ignore # ignore mypy error for invalid type here
+
     def test_uniform(self) -> None:
         """ verifies that the outputs of uniform have correct type, shape and bounds.
 
@@ -147,6 +153,11 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertTrue(np.all(data >= minval))
         self.assertTrue(np.all(data <= maxval))
 
+    def test_uniform_scalar(self) -> None:
+        rng_key = PRNGKey(0)
+        sample = uniform(rng_key)
+        self.assertEqual((), jnp.shape(sample))
+
     def test_random_bits_consistency(self) -> None:
         """ verifies that there is no difference between sampling two blocks directly
             or separately (while manually increasing counter) """
@@ -157,6 +168,42 @@ class ChaChaRNGTests(unittest.TestCase):
         multi_vals_2 = random_bits(rng_key_2, 32, (16,))
         self.assertTrue(np.all(single_vals[:16] == multi_vals_1))
         self.assertTrue(np.all(single_vals[16:] == multi_vals_2))
+
+    def test_random_bits_scalar(self) -> None:
+        rng_key = PRNGKey(0)
+        sample = random_bits(rng_key, 32, ())
+        self.assertEqual((), jnp.shape(sample))
+        self.assertEqual(jnp.uint32, jnp.dtype(sample))
+
+    def test_random_bits_invalid_width(self) -> None:
+        rng_key = PRNGKey(0)
+        with self.assertRaises(ValueError):
+            random_bits(rng_key, 13, (1,))
+
+    def test_uniform_invalid_dtype(self) -> None:
+        rng_key = PRNGKey(0)
+
+        with self.assertRaises(TypeError):
+            _uniform(rng_key, (), jnp.uint8, 0., 1.)
+        with self.assertRaises(TypeError):
+            uniform(rng_key, (), jnp.uint32)
+
+    def test_fold_in(self) -> None:
+        rng_key = PRNGKey(0)
+        nonzero_data = 7
+        zero_data = 0
+
+        nonzero_new_rng_key = fold_in(rng_key, nonzero_data)
+        zero_new_rng_key = fold_in(rng_key, zero_data)
+
+        # key and constants are same
+        self.assertTrue(np.all(rng_key[0:3] == nonzero_new_rng_key[0:3]))
+        self.assertTrue(np.all(rng_key[0:3] == zero_new_rng_key[0:3]))
+
+        # overall states are different
+        self.assertFalse(np.all(rng_key == nonzero_new_rng_key))
+        self.assertFalse(np.all(rng_key == zero_new_rng_key))
+        self.assertFalse(np.all(zero_new_rng_key == nonzero_new_rng_key))
 
 
 if __name__ == '__main__':
