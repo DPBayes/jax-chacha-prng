@@ -9,12 +9,44 @@ on:
     branches: [ master ]
 
 jobs:
-  unittests:
+  unittests-specified-jaxlib:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - jax-version: 0.2.10
+            jaxlib-version: 0.1.62
+          - jax-version: 0.2.11
+            jaxlib-version: 0.1.64
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install environment
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest
+    - name: Install dependencies
+      run: |
+        python -m pip install "jax==${{ matrix.jax-version }}" "jaxlib==${{ matrix.jaxlib-version }}"
+        python -m pip install .[tests]
+    - name: Test with pytest
+      run: |
+        pytest tests/
+
+
+
+  unittests-with-minimum-jaxlib:
 
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        jax-version: [0.2.10, 0.2.12, 0.2.13]
+        jax-version: [0.2.12, 0.2.13, 0.2.14]
 
     steps:
     - uses: actions/checkout@v2

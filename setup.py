@@ -25,10 +25,10 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "numpy >= 1.16, < 2",
-        "jax >= 0.2.10, < 0.2.13"
+        "jax >= 0.2.10, <= 0.2.14"
     ],
     extras_require={
-        "tests": ["jax[minimum-jaxlib] >= 0.2.10, < 0.2.13"],
+        "tests": ["jax[minimum-jaxlib] >= 0.2.10, <= 0.2.14"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
