@@ -30,12 +30,12 @@ import chacha.cipher as cc
 # importing canonicalize_shape function
 try:
     # pre jax v0.2.14 location
-    canonicalize_shape = jax.abstract_arrays.canonicalize_shape
-except AttributeError:
+    _canonicalize_shape = jax.abstract_arrays.canonicalize_shape  # type: ignore
+except (AttributeError, ImportError):
     # post jax v0.2.14 location
     try:
-        canonicalize_shape = jax.core.canonicalize_shape
-    except AttributeError:
+        _canonicalize_shape = jax.core.canonicalize_shape
+    except (AttributeError, ImportError):
         raise ImportError("Cannot import canonicalize_shape routine. "
                           "You are probably using an incompatible version of jax.")
 
@@ -194,5 +194,5 @@ def uniform(
     if not jax.dtypes.issubdtype(dtype, np.floating):
         raise TypeError(f"dtype argument to `uniform` must be a float dtype, got {dtype}")
     dtype = jax.dtypes.canonicalize_dtype(dtype)
-    shape = canonicalize_shape(shape)
+    shape = _canonicalize_shape(shape)
     return _uniform(key, shape, dtype, minval, maxval)
