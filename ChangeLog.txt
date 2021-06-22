@@ -1,1 +1,5 @@
+- 0.1.0-alpha.2:
+    - Fix: random.random_bits() no longer fails for empty shape.
+    - Added: support for jax v0.2.14.
+    - Added: random.fold_in().
 - 0.1.0-alpha: Initial Release
