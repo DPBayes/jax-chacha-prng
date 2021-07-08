@@ -45,7 +45,7 @@ The following methods for direct use of the ChaCha20 cipher for encryption are a
 Quick use functions:
 
 - `chacha.cipher.encrypt_with_key`: Encrypt a of any length message by providing a 256 bit key, 96 bit nonce/IV and an optional 32 bit initial counter value.
-- `chacha.cipher.decrypt_with_key`: Encrypt a of any length message by providing a 256 bit key, 96 bit nonce/IV and an optional 32 bit initial counter value.
+- `chacha.cipher.decrypt_with_key`: Decrypt a of any length message by providing a 256 bit key, 96 bit nonce/IV and an optional 32 bit initial counter value.
 
 State construction and use:
 
