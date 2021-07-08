@@ -10,7 +10,7 @@ The implementation follows a slight variation specified in https://tools.ietf.or
 import jax.numpy as jnp
 import numpy as np
 import jax
-from typing import Callable, Union, Type, Tuple
+from typing import Callable, Union, Type, Tuple, Any
 import functools
 
 ChaChaStateShape = (4, 4)
@@ -34,7 +34,7 @@ ChaChaCounterSizeInWords = ChaChaCounterSizeInBytes >> 2
 
 class ChaChaState(jnp.ndarray):
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> "ChaChaState":
         arr = jnp.array(*args, **kwargs)
         if arr.shape != ChaChaStateShape:
             raise ValueError(f"ChaChaState must have shape {ChaChaStateShape}; got {arr.shape}.")
@@ -51,10 +51,10 @@ def state_verified(state_arg_pos: int = 0) -> Callable:
     """
     def inner_decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapped_func(*args, **kwargs):
-            args = list(args)
-            args[state_arg_pos] = ChaChaState(args[state_arg_pos])
-            return func(*args, **kwargs)
+        def wrapped_func(*args: Any, **kwargs: Any) -> Any:
+            arg_list = list(args)
+            arg_list[state_arg_pos] = ChaChaState(args[state_arg_pos])
+            return func(*arg_list, **kwargs)
         return wrapped_func
     return inner_decorator
 

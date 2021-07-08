@@ -57,7 +57,7 @@ jobs:
         python -m pip install .[tests]
     - name: Type checking
       run: |
-        mypy chacha/ tests/
+        mypy chacha/ tests/ --disallow-untyped-defs
 
   reuse-compliance:
     runs-on: ubuntu-latest

@@ -349,7 +349,7 @@ class ChaCha20CipherTests(unittest.TestCase):
 
 class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
 
-    def test_chacha_block_additional_vector_1(self):
+    def test_chacha_block_additional_vector_1(self) -> None:
         """ Test Vector 1, from RFC 7539 A.1. """
         key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x00'
@@ -368,7 +368,7 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         y = _block(state)
         self.assertTrue(jnp.all(y == expected), "_block function does give correct output on test vector")
 
-    def test_chacha_block_additional_vector_2(self):
+    def test_chacha_block_additional_vector_2(self) -> None:
         """ Test Vector 2, from RFC 7539 A.1. """
         key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x00'
@@ -387,7 +387,7 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         y = _block(state)
         self.assertTrue(jnp.all(y == expected), "_block function does give correct output on test vector")
 
-    def test_chacha_block_additional_vector_3(self):
+    def test_chacha_block_additional_vector_3(self) -> None:
         """ Test Vector 3, from RFC 7539 A.1. """
         key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x01'
@@ -406,7 +406,7 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         y = _block(state)
         self.assertTrue(jnp.all(y == expected), "_block function does give correct output on test vector")
 
-    def test_chacha_block_additional_vector_4(self):
+    def test_chacha_block_additional_vector_4(self) -> None:
         """ Test Vector 4, from RFC 7539 A.1. """
         key = b'\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x00'
@@ -425,7 +425,7 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         y = _block(state)
         self.assertTrue(jnp.all(y == expected), "_block function does give correct output on test vector")
 
-    def test_chacha_block_additional_vector_5(self):
+    def test_chacha_block_additional_vector_5(self) -> None:
         """ Test Vector 5, from RFC 7539 A.1. """
         key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x00'
@@ -444,7 +444,7 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         y = _block(state)
         self.assertTrue(jnp.all(y == expected), "_block function does give correct output on test vector")
 
-    def test_encrypt_with_key_additional_vector_1(self):
+    def test_encrypt_with_key_additional_vector_1(self) -> None:
         """ Test Vector 1, from RFC 7539 A.2. """
         key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
               b'\x00\x00\x00\x00\x00\x00\x00'

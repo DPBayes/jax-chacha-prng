@@ -61,7 +61,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
     counters = jax.lax.iota(jnp.uint32, num_blocks)
 
-    def generate_block(c):
+    def generate_block(c: RNGState) -> jnp.ndarray:
         return cc._block(cc.increase_counter(rng_key, c)).flatten()
 
     blocks = jax.vmap(generate_block)(counters).flatten()
@@ -76,10 +76,10 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
 
 
 @partial(jax.jit, static_argnums=(1,))
-def _split(rng_key, num) -> RNGState:
+def _split(rng_key: RNGState, num: int) -> RNGState:
     ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, cc.ChaChaNonceSizeInWords))
 
-    def make_rng_key(nonce):
+    def make_rng_key(nonce: jnp.ndarray) -> RNGState:
         assert jnp.shape(nonce) == (cc.ChaChaNonceSizeInWords,)
         assert jnp.dtype(nonce) == cc.ChaChaStateElementType
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
@@ -94,7 +94,13 @@ def fold_in(rng_key: RNGState, data: int) -> RNGState:
 
 
 @partial(jax.jit, static_argnums=(1, 2))
-def _uniform(rng_key, shape, dtype, minval, maxval) -> jnp.ndarray:
+def _uniform(
+        rng_key: RNGState,
+        shape: typing.Tuple[int],
+        dtype: type,
+        minval: jnp.float_,
+        maxval: jnp.float_
+    ) -> jnp.ndarray:  # noqa:E121,E125
     _check_shape("uniform", shape)
     if not jnp.issubdtype(dtype, np.floating):
         print("encountered exc in _uniform")
