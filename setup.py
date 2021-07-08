@@ -2,6 +2,61 @@
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
 import setuptools
+from setuptools import Extension
+from setuptools.command.build_ext import build_ext
+import os
+import subprocess
+
+class CMakeBuildExt(build_ext):
+    # adapted from https://github.com/dfm/extending-jax
+    def build_extensions(self):
+        import os
+
+        install_dir = os.path.abspath(
+            os.path.dirname(self.get_ext_fullpath("dummy"))
+        )
+        os.makedirs(install_dir, exist_ok=True)
+        cmake_args = [
+            "-DCMAKE_INSTALL_PREFIX={}".format(install_dir),
+            "-DCMAKE_BUILD_TYPE={}".format(
+                "Debug" if self.debug else "Release"
+            )
+        ]
+
+        os.makedirs(self.build_temp, exist_ok=True)
+
+        HERE = os.path.dirname(os.path.realpath(__file__))
+        subprocess.check_call(
+            ["cmake", HERE] + cmake_args, cwd=self.build_temp
+        )
+
+        # Build all the extensions
+        super().build_extensions()
+
+        # Finally run install
+        subprocess.check_call(
+            ["cmake", "--build", ".", "--target", "install"],
+            cwd=self.build_temp,
+        )
+
+    def build_extension(self, ext):
+        target_name = ext.name.split(".")[-1]
+        subprocess.check_call(
+            ["cmake", "--build", ".", "--target", target_name],
+            cwd=self.build_temp,
+        )
+
+
+extensions = [
+    Extension(
+        "chacha.native",
+        [
+            "lib/cpu_kernel.cpp",
+            "lib/gpu_kernel.cpp.cu",
+            "lib/python_bindings.cpp"
+        ],
+    ),
+]
 
 with open("README.md", "r") as f:
     long_description = f.read()
@@ -43,4 +98,6 @@ setuptools.setup(
         "Intended Audience :: Science/Research",
         "Intended Audience :: Developers"
     ],
+    ext_modules=extensions,
+    cmdclass={'build_ext': CMakeBuildExt}
 )

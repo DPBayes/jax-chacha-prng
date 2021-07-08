@@ -3,13 +3,13 @@
 
 import unittest
 import testconfig  # noqa
-import numpy as np
+import numpy as np  # type: ignore
 import jax.numpy as jnp
 
 from chacha.cipher import \
     ChaChaState, ChaChaStateElementType, ChaChaStateShape, setup_state, encrypt, decrypt, encrypt_with_key,\
     decrypt_with_key, set_nonce, get_nonce, get_counter, increment_counter, serialize
-from chacha.cipher import _block, _quarterround
+from chacha.cipher import _block  # , _quarterround
 
 
 class ChaChaStateTests(unittest.TestCase):
@@ -32,18 +32,18 @@ class ChaChaStateTests(unittest.TestCase):
 
 class ChaCha20CipherTests(unittest.TestCase):
 
-    def test_chacha_quarterround(self) -> None:
-        """ Test vector 2.1.1 from RFC 7539. """
-        x = jnp.array([
-            0x11111111, 0x01020304, 0x9b8d6f43, 0x01234567
-        ], dtype=jnp.uint32)
+    # def test_chacha_quarterround(self) -> None:
+    #     """ Test vector 2.1.1 from RFC 7539. """
+    #     x = jnp.array([
+    #         0x11111111, 0x01020304, 0x9b8d6f43, 0x01234567
+    #     ], dtype=jnp.uint32)
 
-        expected = jnp.array([
-            0xea2a92f4, 0xcb1cf8ce, 0x4581472e, 0x5881c4bb
-        ], dtype=jnp.uint32)
+    #     expected = jnp.array([
+    #         0xea2a92f4, 0xcb1cf8ce, 0x4581472e, 0x5881c4bb
+    #     ], dtype=jnp.uint32)
 
-        y = _quarterround(x)
-        self.assertTrue(jnp.all(expected == y), "_quarterround function does not give correct output on test vector")
+    #     y = _quarterround(x)
+    #     self.assertTrue(jnp.all(expected == y), "_quarterround function does not give correct output on test vector")
 
     def test_chacha_block(self) -> None:
         """ Test vector 2.3.2 from RFC 7539. """

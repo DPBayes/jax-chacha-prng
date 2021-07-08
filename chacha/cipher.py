@@ -5,31 +5,19 @@
 
 The cipher is due to Daniel J. Bernstein and described in https://cr.yp.to/chacha/chacha-20080128.pdf.
 The implementation follows a slight variation specified in https://tools.ietf.org/html/rfc7539.
+The core ChaCha20 block function is implemented in native code found in /lib/ . This module
+contains API functions to create and manipulate the ChaCha20 state as well as perform encryption and decryption.
 """
 
 import jax.numpy as jnp
-import numpy as np
+import numpy as np  # type: ignore
 import jax
 from typing import Callable, Union, Type, Tuple, Any
 import functools
-
-ChaChaStateShape = (4, 4)
-ChaChaStateElementCount = np.prod(ChaChaStateShape)
-ChaChaStateElementType = jnp.uint32
-ChaChaStateElementBitWidth = jnp.iinfo(ChaChaStateElementType).bits
-ChaChaStateBitSize = ChaChaStateElementCount * ChaChaStateElementBitWidth
-
-ChaChaKeySizeInBits = 256
-ChaChaKeySizeInBytes = ChaChaKeySizeInBits >> 3
-ChaChaKeySizeInWords = ChaChaKeySizeInBytes >> 2
-
-ChaChaNonceSizeInBits = 96
-ChaChaNonceSizeInBytes = ChaChaNonceSizeInBits >> 3
-ChaChaNonceSizeInWords = ChaChaNonceSizeInBytes >> 2
-
-ChaChaCounterSizeInBits = 32
-ChaChaCounterSizeInBytes = ChaChaCounterSizeInBits >> 3
-ChaChaCounterSizeInWords = ChaChaCounterSizeInBytes >> 2
+from chacha.defs import \
+    ChaChaStateShape, ChaChaStateElementType, ChaChaNonceSizeInBytes, ChaChaNonceSizeInWords,\
+    ChaChaCounterSizeInWords, ChaChaStateBitSize
+from chacha.jax_ops import chacha20_block as _block
 
 
 class ChaChaState(jnp.ndarray):
@@ -57,79 +45,6 @@ def state_verified(state_arg_pos: int = 0) -> Callable:
             return func(*arg_list, **kwargs)
         return wrapped_func
     return inner_decorator
-
-
-#### CORE CHACHA ROUND FUNCTIONS ####
-
-def rotate_left(x: jnp.ndarray, num_bits: int) -> jnp.ndarray:
-    dtype = jax.lax.dtype(x)
-    issubclass(dtype.type, jnp.unsignedinteger)
-    type_info = jnp.iinfo(dtype)
-    return (x << num_bits) ^ (x >> (type_info.bits - num_bits))
-
-
-@jax.jit
-def _quarterround(x: jnp.ndarray) -> jnp.ndarray:
-    assert x.dtype == ChaChaStateElementType
-    assert x.size == 4
-    a, b, c, d = x[0], x[1], x[2], x[3]
-    a += b
-    d ^= a
-    d = rotate_left(d, 16)
-    c += d
-    b ^= c
-    b = rotate_left(b, 12)
-    a += b
-    d ^= a
-    d = rotate_left(d, 8)
-    c += d
-    b ^= c
-    b = rotate_left(b, 7)
-    return jnp.array([a, b, c, d], dtype=jnp.uint32)
-
-
-@jax.jit
-def _double_round(state: ChaChaState) -> ChaChaState:
-    assert state.shape == ChaChaStateShape
-    assert state.dtype == ChaChaStateElementType
-
-    qr_vmap = jax.vmap(_quarterround, in_axes=1, out_axes=1)
-
-    # quarterround for each column
-    state = ChaChaState(qr_vmap(state))
-
-    # moving diagonals into columns
-    diag_map = jnp.array([
-         0,  1,  2,  3,  # noqa: E126,E241,E131
-         5,  6,  7,  4,  # noqa: E126,E241,E131
-        10, 11,  8,  9,  # noqa: E126,E241,E131
-        15, 12, 13, 14   # noqa: E126,E241,E131
-    ])
-    diag_state = state.ravel()[diag_map].reshape(4, 4)
-
-    # quarterround for each column (aka, diagonal)
-    diag_state = qr_vmap(diag_state)
-
-    # undo previous mapping
-    back_map = jnp.array([
-         0,  1,  2,  3,  # noqa: E126,E241,E131
-         7,  4,  5,  6,  # noqa: E126,E241,E131
-        10, 11,  8,  9,  # noqa: E126,E241,E131
-        13, 14, 15, 12   # noqa: E126,E241,E131
-    ])
-    state = diag_state.ravel()[back_map].reshape(4, 4)
-    return state
-
-
-@jax.jit
-def _block(state: ChaChaState) -> ChaChaState:
-    assert state.shape == ChaChaStateShape
-    assert state.dtype == ChaChaStateElementType
-
-    ori_state = state
-    state = jax.lax.fori_loop(0, 10, lambda i, state: _double_round(state), state)
-    state += ori_state  # type: ignore
-    return state
 
 
 #### STATE SETUP AND MANIPULATION FUNCTIONS ####
