@@ -3,10 +3,9 @@
 
 #include <cstddef>
 #include <stdint.h>
-
-typedef unsigned int uint;
-
 #include <immintrin.h>
+
+#include "defs.hpp"
 
 
 struct VectorizedState
@@ -123,7 +122,7 @@ static void chacha20_block_sse(uint32_t out_state[16], const uint32_t in_state[1
 {
     VectorizedState vec_in_state = vectorize_state(in_state);
     VectorizedState vec_tmp_state = double_round_sse(vec_in_state);
-    for (uint i = 0; i < 9; ++i)
+    for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
     {
         vec_tmp_state = double_round_sse(vec_tmp_state);
     }
@@ -207,9 +206,14 @@ static void chacha20_block_sse(uint32_t out_state[16], const uint32_t in_state[1
 
 void cpu_chacha20_block(void* out_buffer, const void** in_buffers)
 {
-    const uint32_t* in_state = reinterpret_cast<const uint32_t*>(in_buffers[0]);
+    uint32_t num_states = *reinterpret_cast<const uint32_t*>(in_buffers[0]);
+    const uint32_t* in_states = reinterpret_cast<const uint32_t*>(in_buffers[1]);
     uint32_t* out_state = reinterpret_cast<uint32_t*>(out_buffer);
-    chacha20_block_sse(out_state, in_state);
+    for (uint32_t i = 0; i < num_states; ++i)
+    {
+        uint32_t offset = ChaChaStateSizeInBytes * i;
+        chacha20_block_sse(out_state + offset, in_states + offset);
+    }
 }
 
 // TODO: some ad-hoc test code below, move into separate test file

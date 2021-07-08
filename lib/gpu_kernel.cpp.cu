@@ -4,6 +4,9 @@
 #include <cuda_runtime.h>
 #include <cstdlib>
 #include <stdint.h>
+#include <stdexcept>
+
+#include "defs.hpp"
 
 __device__ __inline__
 uint32_t rotate_left(uint32_t value, uint num_bits)
@@ -44,7 +47,9 @@ uint32_vec4 quarterround_with_shuffle(uint32_vec4 vec)
 }
 
 __device__
-void double_round_with_shuffle(uint32_t out_state[16], const uint32_t in_state[16])
+void double_round_with_shuffle(
+    uint32_t out_state[ChaChaStateSizeInBytes],
+    const uint32_t in_state[ChaChaStateSizeInBytes])
 {
     int thread_id = threadIdx.x;
     uint32_vec4 first_vec = {
@@ -66,7 +71,10 @@ void double_round_with_shuffle(uint32_t out_state[16], const uint32_t in_state[1
 }
 
 __device__
-void quarterround(uint32_t out_state[16], const uint32_t in_state[16], const uint indices[4])
+void quarterround(
+    uint32_t out_state[ChaChaStateSizeInBytes],
+    const uint32_t in_state[ChaChaStateSizeInBytes],
+    const uint indices[4])
 {
     uint32_t a = in_state[indices[0]];
     uint32_t b = in_state[indices[1]];
@@ -100,7 +108,7 @@ uint get_diagonal_index(uint i, uint diagonal)
 }
 
 __device__
-void double_round(uint32_t out_state[16], const uint32_t in_state[16])
+void double_round(uint32_t out_state[ChaChaStateSizeInBytes], const uint32_t in_state[ChaChaStateSizeInBytes])
 {
     uint thread_id = threadIdx.x;
 
@@ -121,7 +129,10 @@ void double_round(uint32_t out_state[16], const uint32_t in_state[16])
 }
 
 __device__
-void add_states(uint32_t out[16], const uint32_t x[16], const uint32_t y[16])
+void add_states(
+    uint32_t out[ChaChaStateSizeInBytes],
+    const uint32_t x[ChaChaStateSizeInBytes],
+    const uint32_t y[ChaChaStateSizeInBytes])
 // add two 4x4 matrices using 4 threads (each processing a column in row-major layout)
 {
     int thread_id = threadIdx.x;
@@ -133,31 +144,45 @@ void add_states(uint32_t out[16], const uint32_t x[16], const uint32_t y[16])
 }
 
 __global__
-void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16])
+void chacha20_block(uint32_t* out_state, const uint32_t* in_state)
 {
     // currently this still has consecutive stores and reads to shared memory
     // when transitioning between double_round calls.
     // I think with use of __shfl these could entirely be eliminated and mapped entirely
-    // to registers; would that be worhtwhile, i.e., would the potential performance
+    // to registers; would that be worthwhile, i.e., would the potential performance
     // gain outweight the fact that we would probably need to remove the functional abstractions
     // entirely (or even directly code ptx) to enforce this?
 
+    uint buffer_offset = blockIdx.x * ChaChaStateSizeInBytes;
+
     __shared__ uint32_t tmp_state[16];
-    // double_round_with_shuffle(tmp_state, in_state);
-    double_round(tmp_state, in_state);
-    for (int i = 0; i < 9; ++i)
+    // double_round_with_shuffle(tmp_state, in_state + buffer_offset);
+    double_round(tmp_state, in_state + buffer_offset);
+    for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
     {
         // double_round_with_shuffle(tmp_state, tmp_state);
         double_round(tmp_state, tmp_state);
     }
-    add_states(out_state, in_state, tmp_state);
+    add_states(out_state + buffer_offset, in_state, tmp_state);
 }
 
 void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length)
 {
-    const uint32_t* in_state = reinterpret_cast<const uint32_t*>(buffers[0]);
+    uint32_t num_states = 1;
+    if (opaque_length > 0)
+    {
+        if (opaque_length != sizeof(uint32_t))
+        {
+            throw std::runtime_error(
+                "gpu_chacha20_block requires the opaque argument to be either null or a pointer to a 32-bit integer "
+                "indicating the number of states on which to operate."
+            );
+        }
+        num_states = *reinterpret_cast<const uint32_t*>(opaque);
+    }
+    const uint32_t* in_states = reinterpret_cast<const uint32_t*>(buffers[0]);
     uint32_t* out_state = reinterpret_cast<uint32_t*>(buffers[1]);
-    chacha20_block<<<1, 4, 0, stream>>>(out_state, in_state);
+    chacha20_block<<<num_states, 4, 0, stream>>>(out_state, in_states);
 }
 
 // TODO: some ad-hoc test code below, move into separate test file

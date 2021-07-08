@@ -12,6 +12,7 @@ import jax
 from jax.lib import xla_client
 from jax.interpreters import xla, batching
 import jax.numpy as jnp
+import numpy as np  #type: ignore
 
 from chacha.native import gpu_chacha20_block_factory, cpu_chacha20_block_factory
 
@@ -35,20 +36,37 @@ xla_client.register_cpu_custom_call_target(b"cpu_chacha20_block", cpu_chacha20_b
 
 
 def _chacha20_block_gpu_translation(c, state):
-    state_shape = c.get_shape(state)
+    state_xla_shape = c.get_shape(state)
+    state_shape = state_xla_shape.dimensions()
+
+    if len(state_shape) < 2 or state_shape[-2:] != (4, 4):
+        raise ValueError("state must be at least two-dimensional and last two dimensions must have size 4")
+    batch_dims = state_shape[:-2]
+    num_states_bytes = int(np.prod(batch_dims)).to_bytes(4, 'little')
 
     return xla_client.ops.CustomCallWithLayout(
-        c, b"gpu_chacha20_block", operands=(state,), operand_shapes_with_layout=(state_shape,),
-        shape_with_layout=state_shape
+        c, b"gpu_chacha20_block", operands=(state,), operand_shapes_with_layout=(state_xla_shape,),
+        shape_with_layout=state_xla_shape,
+        opaque=num_states_bytes
     )
 
 
 def _chacha20_block_cpu_translation(c, state):
-    state_shape = c.get_shape(state)
+    state_xla_shape = c.get_shape(state)
+    state_shape = state_xla_shape.dimensions()
+
+    if len(state_shape) < 2 or state_shape[-2:] != (4, 4):
+        raise ValueError("state must be at least two-dimensional and last two dimensions must have size 4")
+    batch_dims = state_shape[:-2]
+    num_states = np.prod(batch_dims).astype(np.uint32)
+
+    num_states = xla_client.ops.ConstantLiteral(c, num_states)
+    num_states_xla_shape = xla_client.Shape.array_shape(np.dtype(np.uint32), (), ())
 
     call_ret = xla_client.ops.CustomCallWithLayout(
-        c, b"cpu_chacha20_block", operands=(state,), operand_shapes_with_layout=(state_shape,),
-        shape_with_layout=state_shape
+        c, b"cpu_chacha20_block", operands=(num_states, state),
+        operand_shapes_with_layout=(num_states_xla_shape, state_xla_shape),
+        shape_with_layout=state_xla_shape
     )
     return call_ret
 
@@ -79,19 +97,18 @@ def chacha20_block(state):
 
 ## BATCHING RULE, FOR VMAP
 def _chacha20_block_batch(states, batch_axes):
-    # TODO: currently very primitive and unperformant solution; needs to be supported from kernel side
+    # TODO: currently somewhat limited, only allows batching over one additional axis
     states = states[0]
     batch_axis = batch_axes[0]
 
+    # assert len(states.shape) >= 2
+    # assert batch_axis < len(states.shape) - 2
     assert len(states.shape) == 3
-    assert states.shape[1:] == (4, 4)
     assert batch_axis == 0
+    assert states.shape[-2:] == (4, 4)
 
-    batch_size = states.shape[0]
-    out_states = [None] * batch_size
-    for i in range(batch_size):
-        out_states[i] = chacha20_block(states[i])
-    out_states = jnp.array(out_states)
+    out_states = chacha20_p.bind(states)
+
     return out_states, batch_axis
 
 
