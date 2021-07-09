@@ -163,7 +163,7 @@ void chacha20_block(uint32_t* out_state, const uint32_t* in_state)
         // double_round_with_shuffle(tmp_state, tmp_state);
         double_round(tmp_state, tmp_state);
     }
-    add_states(out_state + buffer_offset, in_state, tmp_state);
+    add_states(out_state + buffer_offset, in_state + buffer_offset, tmp_state);
 }
 
 void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length)
