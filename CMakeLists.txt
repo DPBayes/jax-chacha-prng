@@ -35,12 +35,15 @@ find_package(Python COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(extern/pybind11)
 # find_package(pybind11 REQUIRED) # broken; does not use correct Python interpreter/libraries in a conda env
 
+find_package(OpenMP REQUIRED)
+
 include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 
 pybind11_add_module(
     native
     ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
+target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
 
 include(CheckLanguage)
 check_language(CUDA)
