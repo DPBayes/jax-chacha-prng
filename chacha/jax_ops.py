@@ -14,7 +14,7 @@ from jax.interpreters import xla, batching
 import jax.numpy as jnp
 import numpy as np  #type: ignore
 
-from chacha.native import gpu_chacha20_block_factory, cpu_chacha20_block_factory
+import chacha.native
 
 # importing ShapedArray and dtypes
 try:
@@ -30,26 +30,9 @@ except (AttributeError, ImportError):
         raise ImportError("Cannot import ShapedArray and dtypes. "
                           "You are probably using an incompatible version of jax.")
 
-
-xla_client.register_custom_call_target(b"gpu_chacha20_block", gpu_chacha20_block_factory(), platform="gpu")
-xla_client.register_cpu_custom_call_target(b"cpu_chacha20_block", cpu_chacha20_block_factory())
-
-
-def _chacha20_block_gpu_translation(c, state):
-    state_xla_shape = c.get_shape(state)
-    state_shape = state_xla_shape.dimensions()
-
-    if len(state_shape) < 2 or state_shape[-2:] != (4, 4):
-        raise ValueError("state must be at least two-dimensional and last two dimensions must have size 4")
-    batch_dims = state_shape[:-2]
-    num_states_bytes = int(np.prod(batch_dims)).to_bytes(4, 'little')
-
-    return xla_client.ops.CustomCallWithLayout(
-        c, b"gpu_chacha20_block", operands=(state,), operand_shapes_with_layout=(state_xla_shape,),
-        shape_with_layout=state_xla_shape,
-        opaque=num_states_bytes
-    )
-
+xla_client.register_cpu_custom_call_target(
+    b"cpu_chacha20_block", chacha.native.cpu_chacha20_block_factory()
+)
 
 def _chacha20_block_cpu_translation(c, state):
     state_xla_shape = c.get_shape(state)
@@ -83,7 +66,6 @@ chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 chacha20_p.def_impl(partial(xla.apply_primitive, chacha20_p))
 
 xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
-xla.backend_specific_translations["gpu"][chacha20_p] = _chacha20_block_gpu_translation
 
 
 def chacha20_block(state):
@@ -93,6 +75,31 @@ def chacha20_block(state):
     # CAUTION: currently implicitly assumes that 4x4 matrix is represented as row-major array
 
     return chacha20_p.bind(state)
+
+try:
+    xla_client.register_custom_call_target(
+        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform="gpu"
+    )
+
+    def _chacha20_block_gpu_translation(c, state):
+        state_xla_shape = c.get_shape(state)
+        state_shape = state_xla_shape.dimensions()
+
+        if len(state_shape) < 2 or state_shape[-2:] != (4, 4):
+            raise ValueError("state must be at least two-dimensional and last two dimensions must have size 4")
+        batch_dims = state_shape[:-2]
+        num_states_bytes = int(np.prod(batch_dims)).to_bytes(4, 'little')
+
+        return xla_client.ops.CustomCallWithLayout(
+            c, b"gpu_chacha20_block", operands=(state,), operand_shapes_with_layout=(state_xla_shape,),
+            shape_with_layout=state_xla_shape,
+            opaque=num_states_bytes
+        )
+
+    xla.backend_specific_translations["gpu"][chacha20_p] = _chacha20_block_gpu_translation
+
+except AttributeError:
+    pass # no GPU support code was built in native ops
 
 
 ## BATCHING RULE, FOR VMAP

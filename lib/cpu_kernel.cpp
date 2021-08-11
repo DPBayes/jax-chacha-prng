@@ -211,7 +211,7 @@ void cpu_chacha20_block(void* out_buffer, const void** in_buffers)
     uint32_t* out_state = reinterpret_cast<uint32_t*>(out_buffer);
     for (uint32_t i = 0; i < num_states; ++i)
     {
-        uint32_t offset = ChaChaStateSizeInBytes * i;
+        uint32_t offset = ChaChaStateSizeInWords * i;
         chacha20_block_sse(out_state + offset, in_states + offset);
     }
 }

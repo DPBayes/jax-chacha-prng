@@ -48,8 +48,8 @@ uint32_vec4 quarterround_with_shuffle(uint32_vec4 vec)
 
 __device__
 void double_round_with_shuffle(
-    uint32_t out_state[ChaChaStateSizeInBytes],
-    const uint32_t in_state[ChaChaStateSizeInBytes])
+    uint32_t out_state[ChaChaStateSizeInWords],
+    const uint32_t in_state[ChaChaStateSizeInWords])
 {
     int thread_id = threadIdx.x;
     uint32_vec4 first_vec = {
@@ -63,7 +63,7 @@ void double_round_with_shuffle(
     second_vec.z = __shfl_sync((uint)-1, second_vec.z, (thread_id + 2) % 4);
     second_vec.w = __shfl_sync((uint)-1, second_vec.w, (thread_id + 3) % 4);
     uint32_vec4 third_vec = quarterround_with_shuffle(second_vec);
-    out_state[0*4 + thread_id] = third_vec.x;
+    out_state[0*4 + (thread_id + 0) % 4] = third_vec.x;
     out_state[1*4 + (thread_id + 1) % 4] = third_vec.y;
     out_state[2*4 + (thread_id + 2) % 4] = third_vec.z;
     out_state[3*4 + (thread_id + 3) % 4] = third_vec.w;
@@ -72,8 +72,8 @@ void double_round_with_shuffle(
 
 __device__
 void quarterround(
-    uint32_t out_state[ChaChaStateSizeInBytes],
-    const uint32_t in_state[ChaChaStateSizeInBytes],
+    uint32_t out_state[ChaChaStateSizeInWords],
+    const uint32_t in_state[ChaChaStateSizeInWords],
     const uint indices[4])
 {
     uint32_t a = in_state[indices[0]];
@@ -108,7 +108,7 @@ uint get_diagonal_index(uint i, uint diagonal)
 }
 
 __device__
-void double_round(uint32_t out_state[ChaChaStateSizeInBytes], const uint32_t in_state[ChaChaStateSizeInBytes])
+void double_round(uint32_t out_state[ChaChaStateSizeInWords], const uint32_t in_state[ChaChaStateSizeInWords])
 {
     uint thread_id = threadIdx.x;
 
@@ -130,15 +130,16 @@ void double_round(uint32_t out_state[ChaChaStateSizeInBytes], const uint32_t in_
 
 __device__
 void add_states(
-    uint32_t out[ChaChaStateSizeInBytes],
-    const uint32_t x[ChaChaStateSizeInBytes],
-    const uint32_t y[ChaChaStateSizeInBytes])
+    uint32_t out[ChaChaStateSizeInWords],
+    const uint32_t x[ChaChaStateSizeInWords],
+    const uint32_t y[ChaChaStateSizeInWords])
 // add two 4x4 matrices using 4 threads (each processing a column in row-major layout)
 {
     int thread_id = threadIdx.x;
-    for (int i = 0; i < 4; ++i)
+    const uint WordsPerThread = ChaChaStateSizeInWords / ThreadsPerState;
+    for (int i = 0; i < WordsPerThread; ++i)
     {
-        int idx = 4*i + thread_id;
+        int idx = i * WordsPerThread + thread_id;
         out[idx] = x[idx] + y[idx];
     }
 }
@@ -153,9 +154,10 @@ void chacha20_block(uint32_t* out_state, const uint32_t* in_state)
     // gain outweight the fact that we would probably need to remove the functional abstractions
     // entirely (or even directly code ptx) to enforce this?
 
-    uint buffer_offset = blockIdx.x * ChaChaStateSizeInBytes;
+    uint buffer_offset = blockIdx.x * ChaChaStateSizeInWords;
 
-    __shared__ uint32_t tmp_state[16];
+    __shared__ uint32_t tmp_state[ChaChaStateSizeInWords];
+
     // double_round_with_shuffle(tmp_state, in_state + buffer_offset);
     double_round(tmp_state, in_state + buffer_offset);
     for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
@@ -182,7 +184,8 @@ void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque,
     }
     const uint32_t* in_states = reinterpret_cast<const uint32_t*>(buffers[0]);
     uint32_t* out_state = reinterpret_cast<uint32_t*>(buffers[1]);
-    chacha20_block<<<num_states, 4, 0, stream>>>(out_state, in_states);
+
+    chacha20_block<<<num_states, ThreadsPerState, 0, stream>>>(out_state, in_states);
 }
 
 // TODO: some ad-hoc test code below, move into separate test file

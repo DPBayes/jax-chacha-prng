@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
 cmake_minimum_required(VERSION 3.18)
-project(jax-chacha20-prng LANGUAGES CXX CUDA)
+project(jax-chacha20-prng LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -40,7 +40,20 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 pybind11_add_module(
     native
     ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu
     ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
-set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 52)
+
+include(CheckLanguage)
+check_language(CUDA)
+
+if (CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    target_compile_definitions(native PRIVATE CUDA_ENABLED)
+    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp)
+    # compile for lowest compute capability supported by XLA: 3.5
+    # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
+    set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
+else()
+    message(WARNING "CUDA not found - building for CPU only!")
+endif()
+
 install(TARGETS native DESTINATION chacha)
