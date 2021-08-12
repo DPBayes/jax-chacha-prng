@@ -18,7 +18,7 @@ constexpr uint CUDAMaximumThreadsPerBlock = 1024; // CUDA limit
 constexpr uint CUDAMaximumSharedMemorySizeInBytes = 48 * 1024; // for compute capability 3.5, which we currently compile for
 
 // Derived configuration constants
-constexpr uint StatesFitInMemory = CUDAMaximumSharedMemorySizeInBytes / ChaChaStateSizeInBytes;
+constexpr uint StatesFitInMemory = CUDAMaximumSharedMemorySizeInBytes / (2*ChaChaStateSizeInBytes); // times two because we maintain two buffers
 constexpr uint TargetThreadsPerBlock = std::min(StatesFitInMemory * ThreadsPerState, CUDAMaximumThreadsPerBlock);
 constexpr uint StatesPerBlock = TargetThreadsPerBlock / ThreadsPerState;
 constexpr uint SharedMemorySizeInWords = ChaChaStateSizeInWords * StatesPerBlock;

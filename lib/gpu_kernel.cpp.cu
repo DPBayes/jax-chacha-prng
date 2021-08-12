@@ -135,12 +135,26 @@ void add_states(
     const uint32_t y[ChaChaStateSizeInWords])
 // add two 4x4 matrices using 4 threads (each processing a column in row-major layout)
 {
-    int thread_id = threadIdx.x % ThreadsPerState;
+    uint thread_id = threadIdx.x % ThreadsPerState;
     constexpr uint WordsPerThread = ChaChaStateSizeInWords / ThreadsPerState;
-    for (int i = 0; i < WordsPerThread; ++i)
+    for (uint i = 0; i < WordsPerThread; ++i)
     {
-        int idx = i * WordsPerThread + thread_id;
+        uint idx = i * WordsPerThread + thread_id;
         out[idx] = x[idx] + y[idx];
+    }
+}
+
+__device__
+void copy_state(
+    uint32_t out[ChaChaStateSizeInWords],
+    const uint32_t in[ChaChaStateSizeInWords])
+{
+    uint thread_id = threadIdx.x % ThreadsPerState;
+    constexpr uint WordsPerThread = ChaChaStateSizeInWords / ThreadsPerState;
+    for (uint i = 0; i < WordsPerThread; ++i)
+    {
+        uint idx = i * WordsPerThread + thread_id;
+        out[idx] = in[idx];
     }
 }
 
@@ -165,16 +179,19 @@ void chacha20_block(uint32_t* out_state, const uint32_t* in_state, uint num_thre
     const uint global_state_index = blockIdx.x * StatesPerBlock + block_state_index;
     const uint global_buffer_offset = global_state_index * ChaChaStateSizeInWords;
 
+    __shared__ uint32_t shared_in_state[SharedMemorySizeInWords];
     __shared__ uint32_t tmp_state[SharedMemorySizeInWords];
 
+    copy_state(shared_in_state + shared_buffer_offset, in_state + global_buffer_offset);
+
     // double_round_with_shuffle(tmp_state, in_state + buffer_offset);
-    double_round(tmp_state + shared_buffer_offset, in_state + global_buffer_offset);
+    double_round(tmp_state + shared_buffer_offset, shared_in_state + shared_buffer_offset);
     for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
     {
         // double_round_with_shuffle(tmp_state, tmp_state);
         double_round(tmp_state + shared_buffer_offset, tmp_state + shared_buffer_offset);
     }
-    add_states(out_state + global_buffer_offset, in_state + global_buffer_offset, tmp_state + shared_buffer_offset);
+    add_states(out_state + global_buffer_offset, shared_in_state + shared_buffer_offset, tmp_state + shared_buffer_offset);
 }
 
 void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length)
@@ -201,76 +218,76 @@ void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque,
     chacha20_block<<<num_blocks, threads_per_block, 0, stream>>>(out_state, in_states, num_threads);
 }
 
-// // TODO: some ad-hoc test code below, move into separate test file
-// #include <iostream>
-// int main(int argc, const char** argv)
-// {
-//     uint num_states = 258;
-//     uint32_t host_state[ChaChaStateSizeInWords] = {
-//         0x61707865, 0x3320646e, 0x79622d32, 0x6b206574,
-//         0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c,
-//         0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c,
-//         0x00000001, 0x09000000, 0x4a000000, 0x00000000,
-//     };
-//     // for (size_t i = 0; i < ChaChaStateSizeInWords; ++i)
-//     // {
-//     //     host_state[i] = i;
-//     // }
+// TODO: some ad-hoc test code below, move into separate test file
+#include <iostream>
+int main(int argc, const char** argv)
+{
+    uint num_states = 260;
+    uint32_t host_state[ChaChaStateSizeInWords] = {
+        0x61707865, 0x3320646e, 0x79622d32, 0x6b206574,
+        0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c,
+        0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c,
+        0x00000001, 0x09000000, 0x4a000000, 0x00000000,
+    };
+    // for (size_t i = 0; i < ChaChaStateSizeInWords; ++i)
+    // {
+    //     host_state[i] = i;
+    // }
 
-//     uint32_t* gpu_state;
-//     if (cudaMalloc((void**)&gpu_state, num_states*ChaChaStateSizeInBytes) != cudaSuccess)
-//     {
-//         std::cout << "failed to allocate device memory!" << std::endl;
-//         return 1;
-//     }
-//     for (uint i = 0; i < num_states; ++i)
-//     {
-//         uint32_t* gpu_state_ptr = gpu_state + i * ChaChaStateSizeInWords;
-//         if (cudaMemcpy(gpu_state_ptr, host_state, ChaChaStateSizeInBytes, cudaMemcpyHostToDevice) != cudaSuccess)
-//         {
-//             std::cout << "failed to copy to device memory!" << std::endl;
-//             return 1;
-//         }
-//     }
+    uint32_t* gpu_state;
+    if (cudaMalloc((void**)&gpu_state, num_states*ChaChaStateSizeInBytes) != cudaSuccess)
+    {
+        std::cout << "failed to allocate device memory!" << std::endl;
+        return 1;
+    }
+    for (uint i = 0; i < num_states; ++i)
+    {
+        uint32_t* gpu_state_ptr = gpu_state + i * ChaChaStateSizeInWords;
+        if (cudaMemcpy(gpu_state_ptr, host_state, ChaChaStateSizeInBytes, cudaMemcpyHostToDevice) != cudaSuccess)
+        {
+            std::cout << "failed to copy to device memory!" << std::endl;
+            return 1;
+        }
+    }
 
-//     uint32_t* gpu_state_out;
-//     if (cudaMalloc((void**)&gpu_state_out, num_states*ChaChaStateSizeInBytes) != cudaSuccess)
-//     {
-//         std::cout << "failed to allocate device memory for out buffer!" << std::endl;
-//         return 1;
-//     }
+    uint32_t* gpu_state_out;
+    if (cudaMalloc((void**)&gpu_state_out, num_states*ChaChaStateSizeInBytes) != cudaSuccess)
+    {
+        std::cout << "failed to allocate device memory for out buffer!" << std::endl;
+        return 1;
+    }
 
-//     uint32_t* buffers[2] = { gpu_state, gpu_state_out };
-//     gpu_chacha20_block(/*stream=*/nullptr, reinterpret_cast<void**>(buffers), /*opaque=*/reinterpret_cast<const char*>(&num_states), /*opaque_length=*/sizeof(num_states));
-//     auto err = cudaGetLastError();
-//     if (err != cudaSuccess)
-//         std::cout << "Error running kernel: " << cudaGetErrorString(err) << std::endl;
+    uint32_t* buffers[2] = { gpu_state, gpu_state_out };
+    gpu_chacha20_block(/*stream=*/nullptr, reinterpret_cast<void**>(buffers), /*opaque=*/reinterpret_cast<const char*>(&num_states), /*opaque_length=*/sizeof(num_states));
+    auto err = cudaGetLastError();
+    if (err != cudaSuccess)
+        std::cout << "Error running kernel: " << cudaGetErrorString(err) << std::endl;
 
-//     // chacha20_block<<<1, 4>>>(gpu_state); // could alternatively run 16 threads for faster final summation and idle unused while processing the 4 columns/diagonals
+    // chacha20_block<<<1, 4>>>(gpu_state); // could alternatively run 16 threads for faster final summation and idle unused while processing the 4 columns/diagonals
 
-//     std::cout << "states per block: " << StatesPerBlock << " threads per block: " << TargetThreadsPerBlock << std::endl;
+    std::cout << "states per block: " << StatesPerBlock << " threads per block: " << TargetThreadsPerBlock << std::endl;
 
-//     uint32_t host_result[ChaChaStateSizeInWords];
-//     cudaMemcpy(host_result, gpu_state_out + 257 * ChaChaStateSizeInWords, ChaChaStateSizeInBytes, cudaMemcpyDeviceToHost);
+    uint32_t host_result[ChaChaStateSizeInWords];
+    cudaMemcpy(host_result, gpu_state_out + 257 * ChaChaStateSizeInWords, ChaChaStateSizeInBytes, cudaMemcpyDeviceToHost);
 
-//     uint32_t host_expected[ChaChaStateSizeInWords] = {
-//         0xe4e7f110, 0x15593bd1, 0x1fdd0f50, 0xc47120a3,
-//         0xc7f4d1c7, 0x0368c033, 0x9aaa2204, 0x4e6cd4c3,
-//         0x466482d2, 0x09aa9f07, 0x05d7c214, 0xa2028bd9,
-//         0xd19c12b5, 0xb94e16de, 0xe883d0cb, 0x4e3c50a2,
-//     };
+    uint32_t host_expected[ChaChaStateSizeInWords] = {
+        0xe4e7f110, 0x15593bd1, 0x1fdd0f50, 0xc47120a3,
+        0xc7f4d1c7, 0x0368c033, 0x9aaa2204, 0x4e6cd4c3,
+        0x466482d2, 0x09aa9f07, 0x05d7c214, 0xa2028bd9,
+        0xd19c12b5, 0xb94e16de, 0xe883d0cb, 0x4e3c50a2,
+    };
 
-//     for (size_t i = 0; i < ChaChaStateSizeInWords; ++i)
-//     {
-//         printf("%x, ", host_result[i]);
-//         if (host_expected[i] != host_result[i])
-//         {
-//             printf("\nDiffers from expected result %x at position %i", host_expected[i], i);
-//             break;
-//         }
-//     }
-//     std::cout << std::endl;
-//     cudaFree(gpu_state);
+    for (size_t i = 0; i < ChaChaStateSizeInWords; ++i)
+    {
+        printf("%x, ", host_result[i]);
+        if (host_expected[i] != host_result[i])
+        {
+            printf("\nDiffers from expected result %x at position %i", host_expected[i], i);
+            break;
+        }
+    }
+    std::cout << std::endl;
+    cudaFree(gpu_state);
 
-// }
+}
 
