@@ -14,6 +14,7 @@ constexpr uint ChaChaStateSizeInBytes = 4 * ChaChaStateSizeInWords;
 #include <algorithm>
 // Basic constraints
 constexpr uint ThreadsPerState = 4;
+constexpr uint WordsPerThread = ChaChaStateSizeInWords / ThreadsPerState;
 constexpr uint CUDAMaximumThreadsPerBlock = 1024; // CUDA limit
 constexpr uint CUDAMaximumSharedMemorySizeInBytes = 48 * 1024; // for compute capability 3.5, which we currently compile for
 
