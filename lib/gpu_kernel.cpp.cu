@@ -14,21 +14,30 @@ uint32_t rotate_left(uint32_t value, uint num_bits)
     return (value << num_bits) ^ (value >> (32 - num_bits));
 }
 
-struct uint32_vec4
+union uint32_vec4
 {
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
-    uint32_t w;
+    struct
+    {
+        uint32_t a;
+        uint32_t b;
+        uint32_t c;
+        uint32_t d;
+    } comp;
+    uint32_t arr[4];
+
+    __device__ uint32_t& operator[](int i)
+    {
+        return arr[i];
+    }
 };
 
 __device__
 uint32_vec4 quarterround_with_shuffle(uint32_vec4 vec)
 {
-    uint32_t a = vec.x;
-    uint32_t b = vec.y;
-    uint32_t c = vec.z;
-    uint32_t d = vec.w;
+    uint32_t a = vec.comp.a;
+    uint32_t b = vec.comp.b;
+    uint32_t c = vec.comp.c;
+    uint32_t d = vec.comp.d;
 
     a += b;
     d ^= a;
@@ -47,149 +56,67 @@ uint32_vec4 quarterround_with_shuffle(uint32_vec4 vec)
 }
 
 __device__
-void double_round_with_shuffle(
-    uint32_t out_state[ChaChaStateSizeInWords],
-    const uint32_t in_state[ChaChaStateSizeInWords])
+uint32_vec4 double_round_with_shuffle(uint32_vec4 state)
 {
-    int thread_id = threadIdx.x % ThreadsPerState;
-    uint32_vec4 first_vec = {
-        in_state[0*4 + thread_id],
-        in_state[1*4 + thread_id],
-        in_state[2*4 + thread_id],
-        in_state[3*4 + thread_id],
-    };
-    uint32_vec4 second_vec = quarterround_with_shuffle(first_vec);
-    second_vec.y = __shfl_sync((uint)-1, second_vec.y, (thread_id + 1) % 4);
-    second_vec.z = __shfl_sync((uint)-1, second_vec.z, (thread_id + 2) % 4);
-    second_vec.w = __shfl_sync((uint)-1, second_vec.w, (thread_id + 3) % 4);
-    uint32_vec4 third_vec = quarterround_with_shuffle(second_vec);
-    out_state[0*4 + (thread_id + 0) % 4] = third_vec.x;
-    out_state[1*4 + (thread_id + 1) % 4] = third_vec.y;
-    out_state[2*4 + (thread_id + 2) % 4] = third_vec.z;
-    out_state[3*4 + (thread_id + 3) % 4] = third_vec.w;
-    __syncwarp();
-}
+    int state_thread_id = threadIdx.x % ThreadsPerState;
 
-__device__
-void quarterround(
-    uint32_t out_state[ChaChaStateSizeInWords],
-    const uint32_t in_state[ChaChaStateSizeInWords],
-    const uint indices[4])
-{
-    uint32_t a = in_state[indices[0]];
-    uint32_t b = in_state[indices[1]];
-    uint32_t c = in_state[indices[2]];
-    uint32_t d = in_state[indices[3]];
+    // quarterround on column
+    state = quarterround_with_shuffle(state);
 
-    a += b;
-    d ^= a;
-    d = rotate_left(d, 16);
-    c += d;
-    b ^= c;
-    b = rotate_left(b, 12);
-    a += b;
-    d ^= a;
-    d = rotate_left(d, 8);
-    c += d;
-    b ^= c;
-    b = rotate_left(b, 7);
-
-    out_state[indices[0]] = a;
-    out_state[indices[1]] = b;
-    out_state[indices[2]] = c;
-    out_state[indices[3]] = d;
-}
-
-
-__device__ __inline__
-uint get_diagonal_index(uint i, uint diagonal)
-{
-    return i * 4 + (i + diagonal) % 4;
-}
-
-__device__
-void double_round(uint32_t out_state[ChaChaStateSizeInWords], const uint32_t in_state[ChaChaStateSizeInWords])
-{
-    uint thread_id = threadIdx.x % ThreadsPerState;
-
-    // quarterround on columns
-    uint first_round_indices[4] = { 0 + thread_id, 4 + thread_id, 8 + thread_id, 12 + thread_id };
-    quarterround(out_state, in_state, first_round_indices);
-    __syncwarp();
-
-    // quarterround on diagonals
-    uint second_round_indices[4] = {
-        get_diagonal_index(0, thread_id),
-        get_diagonal_index(1, thread_id),
-        get_diagonal_index(2, thread_id),
-        get_diagonal_index(3, thread_id)
-    };
-    quarterround(out_state, out_state, second_round_indices);
-    __syncwarp();
-}
-
-__device__
-void add_states(
-    uint32_t out[ChaChaStateSizeInWords],
-    const uint32_t x[ChaChaStateSizeInWords],
-    const uint32_t y[ChaChaStateSizeInWords])
-// add two 4x4 matrices using 4 threads (each processing a column in row-major layout)
-{
-    uint thread_id = threadIdx.x % ThreadsPerState;
-    for (uint i = 0; i < WordsPerThread; ++i)
+    // shuffle so that thread holds diagonal
+    for (int i = 1; i < WordsPerThread; ++i)
     {
-        uint idx = i * WordsPerThread + thread_id;
-        out[idx] = x[idx] + y[idx];
+        state[i] = __shfl_sync((uint)-1,
+            state[i], /*srcLane=*/state_thread_id + i, /*width=*/ThreadsPerState
+        );
     }
-}
 
-__device__
-void copy_state(
-    uint32_t out[ChaChaStateSizeInWords],
-    const uint32_t in[ChaChaStateSizeInWords])
-{
-    uint thread_id = threadIdx.x % ThreadsPerState;
-    for (uint i = 0; i < WordsPerThread; ++i)
+    // quarterround on diagonal
+    state = quarterround_with_shuffle(state);
+
+    // shuffle back to columns
+    for (int i = 1; i < WordsPerThread; ++i)
     {
-        uint idx = i * WordsPerThread + thread_id;
-        out[idx] = in[idx];
+        state[i] = __shfl_sync((uint)-1,
+            state[i], /*srcLane=*/state_thread_id - i, /*width=*/ThreadsPerState
+        );
     }
+
+    return state;
 }
 
 __global__
-void chacha20_block(uint32_t* out_state, const uint32_t* in_state, uint num_threads)
+void chacha20_block_with_shuffle(uint32_t* out_state, const uint32_t* in_state, uint num_threads)
 {
-    // currently this still has consecutive stores and reads to shared memory
-    // when transitioning between double_round calls.
-    // I think with use of __shfl these could entirely be eliminated and mapped entirely
-    // to registers; would that be worthwhile, i.e., would the potential performance
-    // gain outweight the fact that we would probably need to remove the functional abstractions
-    // entirely (or even directly code ptx) to enforce this?
-
     // Each block consists of TargetThreadsPerBlock threads and each group of ThreadsPerState threads
     // handle a single state (for a total of StatesPerBlock states in a block).
     // We index into the state buffer by block id and thread group count:
     const uint thread_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (thread_id >= num_threads) return;
 
+    const uint state_thread_id = threadIdx.x % ThreadsPerState;
     const uint block_state_index = threadIdx.x / ThreadsPerState;
-    const uint shared_buffer_offset = block_state_index * ChaChaStateSizeInWords;
     const uint global_state_index = blockIdx.x * StatesPerBlock + block_state_index;
     const uint global_buffer_offset = global_state_index * ChaChaStateSizeInWords;
 
-    __shared__ uint32_t shared_in_state[SharedMemorySizeInWords];
-    __shared__ uint32_t tmp_state[SharedMemorySizeInWords];
+    uint32_vec4 in_state_vec;
 
-    copy_state(shared_in_state + shared_buffer_offset, in_state + global_buffer_offset);
-
-    // double_round_with_shuffle(tmp_state, in_state + buffer_offset);
-    double_round(tmp_state + shared_buffer_offset, shared_in_state + shared_buffer_offset);
-    for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
+    for (uint i = 0; i < WordsPerThread; ++i)
     {
-        // double_round_with_shuffle(tmp_state, tmp_state);
-        double_round(tmp_state + shared_buffer_offset, tmp_state + shared_buffer_offset);
+        in_state_vec[i] = in_state[global_buffer_offset + i*WordsPerThread + state_thread_id];
     }
-    add_states(out_state + global_buffer_offset, shared_in_state + shared_buffer_offset, tmp_state + shared_buffer_offset);
+
+    uint32_vec4 state_vec = in_state_vec;
+
+    for (uint i = 0; i < ChaChaDoubleRoundCount; ++i)
+    {
+        state_vec = double_round_with_shuffle(state_vec);
+    }
+
+    for (uint i = 0; i < WordsPerThread; ++i)
+    {
+        out_state[global_buffer_offset + i*WordsPerThread + state_thread_id] = in_state_vec[i] + state_vec[i];
+    }
 }
 
 void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length)
@@ -213,7 +140,7 @@ void gpu_chacha20_block(cudaStream_t stream, void** buffers, const char* opaque,
     uint num_blocks =  (num_threads + TargetThreadsPerBlock - 1) / TargetThreadsPerBlock; // = ceil(num_threads / TargetThreadsPerBlock)
 
     uint threads_per_block = std::min(num_threads, TargetThreadsPerBlock);
-    chacha20_block<<<num_blocks, threads_per_block, 0, stream>>>(out_state, in_states, num_threads);
+    chacha20_block_with_shuffle<<<num_blocks, threads_per_block, 0, stream>>>(out_state, in_states, num_threads);
 }
 
 // // TODO: some ad-hoc test code below, move into separate test file
