@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.18)
 project(jax-chacha20-prng LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-msse>)
 
 # native kernels require pybind11; however, if it is installed from pip, it has issues
 # in detecting the Python interpreter and libraries during CMake build in a conda env,
