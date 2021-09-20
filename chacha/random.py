@@ -34,7 +34,7 @@ except (AttributeError, ImportError):
     # post jax v0.2.14 location
     try:
         _canonicalize_shape = jax.core.canonicalize_shape
-    except (AttributeError, ImportError):
+    except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import canonicalize_shape routine. "
                           "You are probably using an incompatible version of jax.")
 
@@ -62,9 +62,9 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     counters = jax.lax.iota(jnp.uint32, num_blocks)
 
     def generate_block(c: RNGState) -> jnp.ndarray:
-        return cc._block(cc.increase_counter(rng_key, c)).flatten()
+        return jnp.ravel(cc._block(cc.increase_counter(rng_key, c)))
 
-    blocks = jax.vmap(generate_block)(counters).flatten()
+    blocks = jnp.ravel(jax.vmap(generate_block)(counters))
     assert blocks.shape == (num_blocks * cc.ChaChaStateElementCount,)
 
     dtype = _UINT_DTYPES[bit_width]

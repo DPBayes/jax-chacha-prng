@@ -128,7 +128,7 @@ def _block(state: ChaChaState) -> ChaChaState:
 
     ori_state = state
     state = jax.lax.fori_loop(0, 10, lambda i, state: _double_round(state), state)
-    state += ori_state
+    state += ori_state  # type: ignore
     return state
 
 
