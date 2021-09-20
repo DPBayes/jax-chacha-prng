@@ -10,7 +10,6 @@ import subprocess
 class CMakeBuildExt(build_ext):
     # adapted from https://github.com/dfm/extending-jax
     def build_extensions(self):
-        import os
 
         install_dir = os.path.abspath(
             os.path.dirname(self.get_ext_fullpath("dummy"))
@@ -54,6 +53,7 @@ extensions = [
             "lib/cpu_kernel.cpp",
             "lib/gpu_kernel.cpp.cu",
             "lib/python_bindings.cpp"
+            "lib/chacha_kernels.hpp",
             "lib/defs.hpp"
         ],
     ),
