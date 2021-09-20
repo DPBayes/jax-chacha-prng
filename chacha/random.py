@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
-
 """ A cryptographically secure pseudo-random number generator for JAX.
 
 This CSPRNG is based on the 20-round ChaCha cipher and offers the same API
@@ -43,6 +42,7 @@ except (AttributeError, ImportError):
 RNGState = cc.ChaChaState
 
 
+@partial(jax.jit, static_argnums=(1, 2))
 def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) -> jnp.ndarray:
     """ Generate an array containing random integers.
 

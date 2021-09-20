@@ -7,3 +7,7 @@ rng_testsuite/extern/TestU01*
 *egg-info/
 *.coverage
 htmlcov/*
+build/*
+log_*
+chacha/native*.so
+timing/*.np
