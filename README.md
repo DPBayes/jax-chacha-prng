@@ -53,7 +53,6 @@ State construction and use:
 - `chacha.cipher.encrypt`: Encrypt a message of any length using a ChaCha state structure.
 - `chacha.cipher.decrypt`: Decrypt a message of any length using a ChaCha state structure.
 
-as well as a number of functions to
 ## Installing
 
 For the latest stable version, clone the repository, checkout the `stable`
@@ -61,6 +60,21 @@ branch and install via `pip`:
 ```
 git checkout stable
 pip install .
+```
+
+### Note about JAX versions
+
+JAX is still under ungoing development and its developers currently give no
+guarantee that the API remains stable between releases. However, recent releases
+were mostly stable in the interfaces required for JAX-ChaCha-PRNG. In order to allow
+usage with JAX-ChaCha-PRNG with the most current JAX release, we therefore do not
+currently constrain the JAX version from above in our dependency list.
+
+However, if you should encounter issues with a new JAX release at some point,
+you can use the `compatible-jax` installation target to force usage of the latest
+JAX version known to be compatible with JAX-ChaCha-PRNG:
+```
+pip install .[compatible-jax]
 ```
 
 ## Versioning
@@ -74,3 +88,18 @@ You can find the full license text in `LICENSES/Apache-2.0.txt`.
 
 Single files included from third parties may be under a different license, which is annotated in the file
 itself and a full license text included in the `LICENSES` directory. The repository is fully [REUSE-compliant](https://reuse.software/).
+
+## Developing and Testing
+
+We welcome any fixes, improvements or other contributions via pull request to this repository.
+
+Before submitting your changes, please make sure to run our Python unit tests via `pytest tests/` and
+ensure that they all succeed. If you add new functionality, please also add tests.
+
+If you made changes to the native C++/CUDA code, please also compile and run the native tests:
+```
+mkdir build
+cmake -DBUILD_TESTING=On ..
+./cpu_kernel_tests
+./gpu_kernel_tests # if you have CUDA installed and a GPU available
+```

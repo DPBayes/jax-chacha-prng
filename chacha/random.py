@@ -20,7 +20,7 @@ The following invariants hold:
 import numpy as np
 import jax
 import jax.numpy as jnp
-from jax._src.random import _UINT_DTYPES, _check_shape
+from jax._src.random import _check_shape
 import typing
 from functools import partial
 
@@ -30,12 +30,24 @@ import chacha.cipher as cc
 try:
     # pre jax v0.2.14 location
     _canonicalize_shape = jax.abstract_arrays.canonicalize_shape  # type: ignore
-except (AttributeError, ImportError):
+except (AttributeError, ImportError): # pragma: no cover
     # post jax v0.2.14 location
     try:
         _canonicalize_shape = jax.core.canonicalize_shape
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import canonicalize_shape routine. "
+                          "You are probably using an incompatible version of jax.")
+
+# importing _UINT_DTYPES
+try:
+    # pre jax v0.2.20 location
+    _UINT_DTYPES = jax._src.random._UINT_DTYPES  # type: ignore
+except (AttributeError, ImportError): # pragma: no cover
+    # post jax v.2.20 location
+    try:
+        _UINT_DTYPES = jax._src.random.UINT_DTYPES
+    except (AttributeError, ImportError):  # pragma: no cover
+        raise ImportError("Cannot import UINT_DTYPES enum. "
                           "You are probably using an incompatible version of jax.")
 
 

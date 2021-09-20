@@ -12,7 +12,9 @@ spec = importlib.util.spec_from_file_location("version_module", "chacha/version.
 version_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(version_module)
 
-_jax_version_constraints = ' >= 0.2.10, <= 0.2.18'
+_jax_version_lower_constraint = ' >= 0.2.10'
+_jax_version_optimistic_upper_constraint = ', <= 2.0.0'
+_jax_version_upper_constraint = ', <= 0.2.20'
 
 setuptools.setup(
     name='jax-chacha-prng',
@@ -27,10 +29,11 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "numpy >= 1.16, < 2",
-        f"jax{_jax_version_constraints}"
+        f"jax{_jax_version_lower_constraint}{_jax_version_optimistic_upper_constraint}"
     ],
     extras_require={
-        "tests": [f"jax[minimum-jaxlib]{_jax_version_constraints}"],
+        "tests": [f"jax[minimum-jaxlib]{_jax_version_lower_constraint}{_jax_version_optimistic_upper_constraint}"],
+        "compatible-jax": [f"jax{_jax_version_lower_constraint}{_jax_version_upper_constraint}"]
     },
     classifiers=[
         "Programming Language :: Python :: 3",
