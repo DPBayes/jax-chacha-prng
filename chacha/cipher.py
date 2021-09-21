@@ -12,39 +12,11 @@ contains API functions to create and manipulate the ChaCha20 state as well as pe
 import jax.numpy as jnp
 import numpy as np  # type: ignore
 import jax
-from typing import Callable, Union, Type, Tuple, Any
-import functools
+from typing import Union, Type, Tuple
 from chacha.defs import \
-    ChaChaStateShape, ChaChaStateElementType, ChaChaNonceSizeInBytes, ChaChaNonceSizeInWords,\
-    ChaChaCounterSizeInWords, ChaChaStateBitSize
+    ChaChaStateElementType, ChaChaNonceSizeInBytes, ChaChaNonceSizeInWords,\
+    ChaChaCounterSizeInWords, ChaChaStateBitSize, ChaChaState, state_verified
 from chacha.jax_ops import chacha20_block as _block
-
-
-class ChaChaState(jnp.ndarray):
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> "ChaChaState":
-        arr = jnp.array(*args, **kwargs)
-        if arr.shape != ChaChaStateShape:
-            raise ValueError(f"ChaChaState must have shape {ChaChaStateShape}; got {arr.shape}.")
-        if arr.dtype != ChaChaStateElementType:
-            raise TypeError(f"ChaChaState must have dtype {ChaChaStateElementType}; got {arr.dtype}.")
-        return arr
-
-
-def state_verified(state_arg_pos: int = 0) -> Callable:
-    """ Decorator that ensures that a valid ChaChaState is passed into the function.
-
-    Args:
-      state_arg_pos: The position of the state argument in the decorated function's argument list.
-    """
-    def inner_decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapped_func(*args: Any, **kwargs: Any) -> Any:
-            arg_list = list(args)
-            arg_list[state_arg_pos] = ChaChaState(args[state_arg_pos])
-            return func(*arg_list, **kwargs)
-        return wrapped_func
-    return inner_decorator
 
 
 #### STATE SETUP AND MANIPULATION FUNCTIONS ####
