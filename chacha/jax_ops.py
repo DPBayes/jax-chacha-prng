@@ -6,7 +6,6 @@
 This module sets up the native implementation of the ChaCha20 block function as JAX ops.
 """
 
-from jaxlib.xla_client import XlaOp
 from chacha.defs import ChaChaState
 from functools import partial
 
@@ -32,6 +31,18 @@ except (AttributeError, ImportError):  # pragma: no cover
         from jax._src import dtypes  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import ShapedArray and dtypes. "
+                          "You are probably using an incompatible version of jax.")
+
+# importing XlaOp
+try:
+    # pre jax v0.2.13 location
+    XlaOp = jax.xla.XlaOp  # type: ignore
+except (AttributeError, ImportError):  # pragma: no cover
+    # post jax v0.2.13 location
+    try:
+        from jaxlib.xla_client import XlaOp  # type: ignore
+    except (AttributeError, ImportError):  # pragma: no cover
+        raise ImportError("Cannot import XlaOp. "
                           "You are probably using an incompatible version of jax.")
 
 xla_client.register_cpu_custom_call_target(

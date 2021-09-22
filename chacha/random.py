@@ -34,7 +34,7 @@ try:
 except (AttributeError, ImportError):  # pragma: no cover
     # post jax v0.2.14 location
     try:
-        _canonicalize_shape = jax.core.canonicalize_shape
+        _canonicalize_shape = jax.core.canonicalize_shape  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import canonicalize_shape routine. "
                           "You are probably using an incompatible version of jax.")
@@ -46,7 +46,7 @@ try:
 except (AttributeError, ImportError):  # pragma: no cover
     # post jax v.2.20 location
     try:
-        _UINT_DTYPES = jax._src.random.UINT_DTYPES
+        _UINT_DTYPES = jax._src.random.UINT_DTYPES  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import UINT_DTYPES enum. "
                           "You are probably using an incompatible version of jax.")
@@ -69,7 +69,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
-    size = np.prod(shape, dtype=int)
+    size = int(np.prod(shape, dtype=int))
     num_bits = bit_width * size
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
     counters = jax.lax.iota(jnp.uint32, num_blocks)
