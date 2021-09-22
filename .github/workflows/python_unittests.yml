@@ -79,4 +79,4 @@ jobs:
         python -m pip install reuse
     - name: Reuse compliance
       run: |
-        reuse lint
+        reuse --include-submodules lint
