@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: jax-chacha-prng
+Source: https://github.com/DPBayes/jax-chacha-prng
+
+Files: extern/pybind11/*
+Copyright: (c) 2016 Wenzel Jakob <wenzel.jakob@epfl.ch>, All rights reserved.
+License: LicenseRef-pybind11License

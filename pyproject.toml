@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2021 Aalto University
+
+[build-system]
+requires = ["setuptools>=42", "wheel", "cmake"]
+build-backend = "setuptools.build_meta"

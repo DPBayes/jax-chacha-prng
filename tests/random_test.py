@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 from chacha.random import fold_in, split, PRNGKey, random_bits, uniform, _uniform
 from chacha.cipher import set_counter
-import numpy as np
+import numpy as np  # type: ignore
 
 
 class ChaChaRNGTests(unittest.TestCase):

@@ -17,7 +17,7 @@ The following invariants hold:
     was split.
 """
 
-import numpy as np
+import numpy as np  # type: ignore
 import jax
 import jax.numpy as jnp
 from jax._src.random import _check_shape
@@ -25,6 +25,7 @@ import typing
 from functools import partial
 
 import chacha.cipher as cc
+from chacha import defs
 
 # importing canonicalize_shape function
 try:
@@ -33,7 +34,7 @@ try:
 except (AttributeError, ImportError):  # pragma: no cover
     # post jax v0.2.14 location
     try:
-        _canonicalize_shape = jax.core.canonicalize_shape
+        _canonicalize_shape = jax.core.canonicalize_shape  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import canonicalize_shape routine. "
                           "You are probably using an incompatible version of jax.")
@@ -45,7 +46,7 @@ try:
 except (AttributeError, ImportError):  # pragma: no cover
     # post jax v.2.20 location
     try:
-        _UINT_DTYPES = jax._src.random.UINT_DTYPES
+        _UINT_DTYPES = jax._src.random.UINT_DTYPES  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import UINT_DTYPES enum. "
                           "You are probably using an incompatible version of jax.")
@@ -68,7 +69,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
-    size = np.prod(shape, dtype=int)
+    size = int(np.prod(shape, dtype=int))
     num_bits = bit_width * size
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
     counters = jax.lax.iota(jnp.uint32, num_blocks)
@@ -77,7 +78,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
         return jnp.ravel(cc._block(cc.increase_counter(rng_key, c)))
 
     blocks = jnp.ravel(jax.vmap(generate_block)(counters))
-    assert blocks.shape == (num_blocks * cc.ChaChaStateElementCount,)
+    assert blocks.shape == (num_blocks * defs.ChaChaStateElementCount,)
 
     dtype = _UINT_DTYPES[bit_width]
 
@@ -89,11 +90,11 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
 
 @partial(jax.jit, static_argnums=(1,))
 def _split(rng_key: RNGState, num: int) -> RNGState:
-    ivs = random_bits(rng_key, cc.ChaChaStateElementBitWidth, (num, cc.ChaChaNonceSizeInWords))
+    ivs = random_bits(rng_key, defs.ChaChaStateElementBitWidth, (num, defs.ChaChaNonceSizeInWords))
 
     def make_rng_key(nonce: jnp.ndarray) -> RNGState:
-        assert jnp.shape(nonce) == (cc.ChaChaNonceSizeInWords,)
-        assert jnp.dtype(nonce) == cc.ChaChaStateElementType
+        assert jnp.shape(nonce) == (defs.ChaChaNonceSizeInWords,)
+        assert jnp.dtype(nonce) == defs.ChaChaStateElementType
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
     return jax.vmap(make_rng_key)(ivs)
@@ -158,13 +159,13 @@ def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
       An PRNG key, which is equivalent to a ChaChaState, which in turn is a 4x4 array of 32 bit integers.
     """
     if isinstance(seed, int):
-        seed = seed % (1 << cc.ChaChaKeySizeInBits)
-        seed = seed.to_bytes(cc.ChaChaKeySizeInBytes, byteorder='big', signed=False)
+        seed = seed % (1 << defs.ChaChaKeySizeInBits)
+        seed = seed.to_bytes(defs.ChaChaKeySizeInBytes, byteorder='big', signed=False)
     if isinstance(seed, bytes):
-        if len(seed) > cc.ChaChaKeySizeInBytes:
-            raise ValueError(f"A ChaCha PRNGKey cannot be larger than {cc.ChaChaKeySizeInBytes} bytes.")
+        if len(seed) > defs.ChaChaKeySizeInBytes:
+            raise ValueError(f"A ChaCha PRNGKey cannot be larger than {defs.ChaChaKeySizeInBytes} bytes.")
         seed_buffer = np.frombuffer(seed, dtype=np.uint8)
-        key_buffer = np.zeros(cc.ChaChaKeySizeInBytes, dtype=np.uint8)
+        key_buffer = np.zeros(defs.ChaChaKeySizeInBytes, dtype=np.uint8)
         key_buffer[:len(seed_buffer)] = seed_buffer
         key_buffer = key_buffer.view(jnp.uint32)
     else:
