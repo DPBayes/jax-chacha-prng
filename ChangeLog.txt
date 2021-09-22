@@ -1,4 +1,4 @@
-- 0.1.0-alpha.3 (unreleased):
+- 1.0.0-rc.1:
     - Added: support for jax v0.2.15 - v 0.2.20.
     - Added: Native implementations for ChaCha block function as JAX ops.
 - 0.1.0-alpha.2:
