@@ -103,13 +103,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(python -c "import chacha.version; print(chacha.version.VERSION)")
+          TAG_NAME=${GITHUB_REF##refs/tags/}
           echo "Version: ${VERSION}"
+          echo "Ref: ${GITHUB_REF}"
+          echo "Tag: ${TAG_NAME}"
           assets=()
           for asset in $(find wheels -type f); do
             echo "Adding asset: ${asset}"
             assets+=("-a" "$asset")
           done
-          hub release create -p "${assets[@]}" -m "$VERSION" -F ChangeLog.txt -t "${GITHUB_REF#refs/tags/}" "$VERSION"
+          hub release create -p "${assets[@]}" -m "$VERSION" -F ChangeLog.txt "$VERSION"
       - name: Publish Release
         if: contains(github.ref, 'stable')
         env:
@@ -117,6 +120,8 @@ jobs:
         run: |
           VERSION=$(python -c "import chacha.version; print(chacha.version.VERSION)")
           echo "Version: ${VERSION}"
+          echo "Ref: ${GITHUB_REF}"
+          echo "Commit: ${GITHUB_SHA}"
           assets=()
           for asset in $(find wheels -type f); do
             echo "Adding asset: ${asset}"
