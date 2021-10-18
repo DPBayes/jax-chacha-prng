@@ -1,4 +1,4 @@
-- master:
+- 1.0.0-rc.2:
     - Added: support for jax v0.2.21 - v0.2.22.
     - Removed: support for jax v0.2.10 - v0.2.11.
 - 1.0.0-rc.1:
