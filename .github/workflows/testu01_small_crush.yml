@@ -34,7 +34,7 @@ jobs:
         cmake -DCMAKE_BUILD_TYPE=Release ..
         make -j rng_tests
     - name: Install Python dependencies
-      run: python -m pip install .[tests]
+      run: python -m pip install .[tests,compatible-jax]
     - name: Run Small Crush Battery
       working-directory: rng_testsuite
       run: |

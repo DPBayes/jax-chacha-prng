@@ -1,5 +1,8 @@
+- master:
+    - Added: support for jax v0.2.21 - v0.2.22.
+    - Removed: support for jax v0.2.10 - v0.2.11.
 - 1.0.0-rc.1:
-    - Added: support for jax v0.2.15 - v 0.2.20.
+    - Added: support for jax v0.2.15 - v0.2.20.
     - Added: Native implementations for ChaCha block function as JAX ops.
 - 0.1.0-alpha.2:
     - Fix: random.random_bits() no longer fails for empty shape.

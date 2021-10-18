@@ -91,7 +91,7 @@ def increase_counter(state: ChaChaState, amount: Union[int, jnp.ndarray]) -> Cha
     Returns:
       The new ChaCha cipher state with increased counter value.
     """
-    return jax.ops.index_add(state, (3, 0), amount, True, True)
+    return state.at[3, 0].add(amount)
 
 
 @state_verified()
@@ -118,7 +118,7 @@ def set_counter(state: ChaChaState, counter: Union[int, jnp.ndarray]) -> ChaChaS
     Returns:
       The new ChaCha cipher state with the given counter value.
     """
-    return jax.ops.index_update(state, (3, 0), counter, True, True)
+    return state.at[3, 0].set(counter)
 
 
 @state_verified()
@@ -147,7 +147,7 @@ def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
     """
     assert jnp.shape(nonce) == (3,)
     assert jnp.dtype(state) == jnp.dtype(nonce)
-    return jax.ops.index_update(state, jax.ops.index[3, 1:4], nonce, True, True)
+    return state.at[3, 1:4].set(nonce)
 
 
 @state_verified()
