@@ -5,7 +5,7 @@ name: Build Wheels
 
 on:
   push:
-    branches: [ "*stable" ]
+    branches: [ "*stable", "buildsystem-test" ]
     tags: [ "*rc*" ]
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
         cuda-setup: [
         # [cuda-version, cuda-link, gcc-version]
           [10.0.130, "https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda_10.0.130_410.48_linux", 7],
@@ -47,7 +47,7 @@ jobs:
       uses: jwlawson/actions-setup-cmake@v1.9
     - name: Create Wheel
       run: |
-        export JAX_CHACHA_PRNG_BUILD=$(echo ${{ matrix.cuda-setup[0] }} | cut -d. -f1,2 | sed 's/\.//')
+        export JAX_CHACHA_PRNG_BUILD=cuda$(echo ${{ matrix.cuda-setup[0] }} | cut -d. -f1,2 | sed 's/\.//')
         export PATH=/usr/local/cuda/bin:$PATH
         python setup.py bdist_wheel
     - uses: actions/upload-artifact@v2
