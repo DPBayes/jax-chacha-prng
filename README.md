@@ -97,6 +97,10 @@ You can find the full license text in `LICENSES/Apache-2.0.txt`.
 Single files included from third parties may be under a different license, which is annotated in the file
 itself and a full license text included in the `LICENSES` directory. The repository is fully [REUSE-compliant](https://reuse.software/).
 
+## Acknowledgements
+
+We thank the NVIDIA AI Technology Center Finland for their contribution of GPU performance benchmarking and helpful discussions on optimisation.
+
 ## Developing and Testing
 
 We welcome any fixes, improvements or other contributions via pull request to this repository.
