@@ -123,7 +123,7 @@ int main(int argc, const char** argv)
         {
             case TestBattery::SmallCrush: { bbattery_SmallCrush(&pythonGen); break; }
             case TestBattery::Crush: { bbattery_Crush(&pythonGen); break; }
-            case TestBattery::BigCrush: { bbattery_Crush(&pythonGen); break; }
+            case TestBattery::BigCrush: { bbattery_BigCrush(&pythonGen); break; }
             case TestBattery::FIPS1402: { bbattery_FIPS_140_2(&pythonGen); break; }
         }
         ClearPythonRNG(pythonGen);
