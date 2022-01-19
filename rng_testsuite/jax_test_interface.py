@@ -5,7 +5,7 @@
 import jax.config
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-import jax.random
+import jax
 import numpy as np
 from typing import Tuple
 
@@ -19,13 +19,13 @@ def uniform_and_state_update(rng_key: jax.random.PRNGKey, count: int) -> Tuple[j
         which is not the case for 32bit floats """
     next_rng_key, local_rng_key = jax.random.split(rng_key, 2)
     random_data = jax.random.uniform(local_rng_key, (count,), np.float64)
-    return random_data, next_rng_key
+    return np.array(random_data), next_rng_key
 
 def bits_and_state_update(rng_key: jax.random.PRNGKey, count: int) -> Tuple[jnp.array, jax.random.PRNGKey]:
     """ must generate 32bit integers """
     next_rng_key, local_rng_key = jax.random.split(rng_key, 2)
-    random_data = jax.random._random_bits(local_rng_key, 32, (count,))
-    return random_data, next_rng_key
+    random_data = jax._src.random._random_bits(local_rng_key, 32, (count,))
+    return np.array(random_data), next_rng_key
 
 def to_string(rng_key: jax.random) -> str:
     return f"rng key = {rng_key}"

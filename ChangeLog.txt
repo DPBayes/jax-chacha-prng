@@ -1,5 +1,6 @@
 - master:
     - Added: chacha.native.cuda_supported, returns True if cuda kernels were compiled.
+    - Added: support for jax up to v0.2.27.
 - 1.0.0-rc.3:
     - Added: wheels for Python 3.10.
 - 1.0.0-rc.2:
