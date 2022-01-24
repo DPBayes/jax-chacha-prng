@@ -5,8 +5,8 @@
 import jax.config
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from chacha.random import PRNGKey, uniform, random_bits
-from chacha.cipher import increase_counter
+from chacha.random import PRNGKey, uniform, random_bits, split
+from chacha.cipher import increase_counter, get_counter
 import numpy as np
 from typing import Tuple
 
@@ -22,6 +22,12 @@ def uniform_and_state_update(rng_key: jnp.array, count: int) -> Tuple[jnp.array,
     num_blocks = (count+7) // 8  # 512 bit state means 8 64 bit floats
     next_rng_key = increase_counter(rng_key, num_blocks)
 
+    # making many repeated requests might overflow the state's counter,
+    # in that case we split the state and start with a fresh counter
+    if get_counter(next_rng_key) < get_counter(rng_key):
+        rng_key = split(rng_key, 1)[0]
+        next_rng_key = increase_counter(rng_key, num_blocks)
+
     random_data = uniform(rng_key, (count,), np.float64)
     return np.array(random_data), next_rng_key
 
@@ -30,6 +36,12 @@ def bits_and_state_update(rng_key: jnp.array, count: int) -> Tuple[jnp.array, jn
     """ must generate 32bit integers """
     num_blocks = (count+15) // 16  # 512 bit state means 16 32 bit uints
     next_rng_key = increase_counter(rng_key, num_blocks)
+
+    # making many repeated requests might overflow the state's counter,
+    # in that case we split the state and start with a fresh counter
+    if get_counter(next_rng_key) < get_counter(rng_key):
+        rng_key = split(rng_key, 1)[0]
+        next_rng_key = increase_counter(rng_key, num_blocks)
 
     random_data = random_bits(rng_key, 32, (count,))
     return np.array(random_data), next_rng_key
