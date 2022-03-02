@@ -1,3 +1,5 @@
+- 1.1.0:
+    - Added: support for multiple layers of vmap wraps for functions in chacha.random.
 - 1.0.0:
     - Added: chacha.native.cuda_supported, returns True if cuda kernels were compiled.
     - Added: support for jax up to v0.2.27.

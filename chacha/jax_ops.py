@@ -86,11 +86,18 @@ xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_trans
 
 
 def chacha20_block(state: ChaChaState) -> ChaChaState:
-    assert jnp.shape(state) in ((4, 4), (16, 1), (16,))
-    assert jnp.dtype(state) == jnp.uint32
+    if jnp.shape(state) not in ((4, 4), (16, 1), (16,)):
+        raise ValueError(
+            f"Argument to chacha20_block did have unexpected shape. Did you pass a ChaCha state? "
+            f"Got: {jnp.shape(state)}, expected (4,4)."
+        )
+    if jnp.dtype(state) != jnp.uint32:
+        raise ValueError(
+            f"Argument to chacha20_block did have unexpected type. Did you pass a ChaCha state? "
+            f"Got: {jnp.dtype(state)}, expected uint32."
+        )
 
     # CAUTION: currently implicitly assumes that 4x4 matrix is represented as row-major array
-
     return chacha20_p.bind(state)
 
 
@@ -123,16 +130,21 @@ except AttributeError:
 
 ## BATCHING RULE, FOR VMAP
 def _chacha20_block_batch(states: jnp.ndarray, batch_axes: Tuple[int]) -> Tuple[jnp.ndarray, int]:
-    # TODO: currently somewhat limited, only allows batching over one additional axis
+    # Our CPU/GPU primitive can already batch over arbitrary leading
+    # dimensions. So there's not really anything to do here.
+    # We don't even need to really care about which axis should be batched over:
+    # jax will take care of taking out the correct axis for nested calls to vmap
+    # and mapping it back to outputs, and in the end we will map over all potential batch
+    # dimensions, so we do not need to move any axes around here.
+
     states = states[0]
     batch_axis = batch_axes[0]
 
-    assert len(states.shape) == 3
-    assert batch_axis == 0
+    assert batch_axis < len(states.shape) - 2
+    assert len(states.shape) >= 3
     assert states.shape[-2:] == (4, 4)
 
     out_states = chacha20_p.bind(states)
-
     return out_states, batch_axis
 
 
