@@ -601,7 +601,12 @@ class ChaCha20CipherVectorizationTest(unittest.TestCase):
 
         states = jnp.array([[setup_state(key, iv, counter + i * 7) for counter in range(7)] for i in range(5)])
 
-        baseline = jnp.array([[_block(state) for state in i_states] for i_states in states])
+        baseline = jnp.array([
+            [
+                _block(jnp.array(state))  # casting to jnp.array explicity to prevent failure with old jax versions
+                for state in i_states
+            ] for i_states in states
+        ])
 
         assert states.shape == (5, 7, 4, 4)
         expected = [
@@ -645,7 +650,7 @@ class ChaCha20CipherVectorizationTest(unittest.TestCase):
         baseline = jnp.array([
             [
                 [
-                    _block(state)
+                    _block(jnp.array(state))  # casting to jnp.array explicity to prevent failure with old jax versions
                     for state in ij_states
                 ] for ij_states in j_states
             ] for j_states in states
