@@ -4,6 +4,7 @@
 import unittest
 import testconfig  # noqa
 import jax.numpy as jnp
+import jax
 
 from chacha.random import fold_in, split, PRNGKey, random_bits, uniform, _uniform
 from chacha.cipher import set_counter
@@ -157,6 +158,26 @@ class ChaChaRNGTests(unittest.TestCase):
         rng_key = PRNGKey(0)
         sample = uniform(rng_key)
         self.assertEqual((), jnp.shape(sample))
+
+    def test_uniform_vmap(self) -> None:
+        rng_key = PRNGKey(0)
+        batch_keys = split(rng_key, 7)
+        shape = (3, 12)
+        minval = 1
+        maxval = 3
+        dtype = jnp.float32
+        data = jax.vmap(lambda key: uniform(key, shape, dtype, minval, maxval))(batch_keys)
+
+        self.assertEqual(jnp.float32, data.dtype)
+        self.assertEqual((7, *shape), data.shape)
+        self.assertTrue(np.all(data >= minval))
+        self.assertTrue(np.all(data <= maxval))
+
+    def test_uniform_scalar_vmap(self) -> None:
+        rng_key = PRNGKey(0)
+        batch_keys = split(rng_key, 7)
+        sample = jax.vmap(uniform)(batch_keys)
+        self.assertEqual((7,), jnp.shape(sample))
 
     def test_random_bits_consistency(self) -> None:
         """ verifies that there is no difference between sampling two blocks directly

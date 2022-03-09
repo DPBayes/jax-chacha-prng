@@ -55,10 +55,9 @@ State construction and use:
 
 ## Installing
 
-For the latest stable version, clone the repository, install from the `stable`
-branch via `pip`:
+For the latest stable version install from the `v1-stable` branch via `pip`:
 ```
-pip install git+https://github.com/DPBayes/jax-chacha-prng@stable#egg=jax-chacha-prng
+pip install git+https://github.com/DPBayes/jax-chacha-prng@v1-stable#egg=jax-chacha-prng
 ```
 
 Installation will compile CUDA kernels if the CUDA library is present on the system,
@@ -112,6 +111,7 @@ If you made changes to the native C++/CUDA code, please also compile and run the
 ```
 mkdir build
 cmake -DBUILD_TESTING=On ..
+make -j
 ./cpu_kernel_tests
 ./gpu_kernel_tests # if you have CUDA installed and a GPU available
 ```

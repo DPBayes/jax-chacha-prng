@@ -75,7 +75,7 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     counters = jax.lax.iota(jnp.uint32, num_blocks)
 
     def generate_block(c: RNGState) -> jnp.ndarray:
-        return jnp.ravel(cc._block(cc.increase_counter(rng_key, c)))
+        return cc._block(cc.increase_counter(rng_key, c))
 
     blocks = jnp.ravel(jax.vmap(generate_block)(counters))
     assert blocks.shape == (num_blocks * defs.ChaChaStateElementCount,)

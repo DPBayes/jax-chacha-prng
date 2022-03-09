@@ -11,3 +11,4 @@ build/*
 log_*
 chacha/native*.so
 timing/*.np
+local_notes.txt

@@ -4,6 +4,7 @@
 import unittest
 import testconfig  # noqa
 import numpy as np  # type: ignore
+import jax
 import jax.numpy as jnp
 
 from chacha.cipher import \
@@ -505,6 +506,184 @@ class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
         ciphertext, new_counter = encrypt_with_key(message, key, iv, counter)
         self.assertEqual(counter + message_blocksize, new_counter)
         self.assertEqual(expected, ciphertext)
+
+
+class ChaCha20CipherVectorizationTest(unittest.TestCase):
+
+    def test_block_accepts_only_single_state(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([setup_state(key, iv, counter) for counter in range(7)])
+
+        with self.assertRaises(ValueError):
+            _block(states)
+
+    def test_block_exception_for_vmap_when_input_is_single_state(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        state = setup_state(key, iv, 0)
+        with self.assertRaises(ValueError):
+            jax.vmap(_block)(state)
+
+    def test_block_singly_vectorized(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([setup_state(key, iv, counter) for counter in range(7)])
+        expected = [
+            jnp.array([
+                [0xade0b876, 0x903df1a0, 0xe56a5d40, 0x28bd8653],
+                [0xb819d2bd, 0x1aed8da0, 0xccef36a8, 0xc70d778b],
+                [0x7c5941da, 0x8d485751, 0x3fe02477, 0x374ad8b8],
+                [0xf4b8436a, 0x1ca11815, 0x69b687c3, 0x8665eeb2],
+            ], dtype=jnp.uint32),
+            jnp.array([
+                [0xbee7079f, 0x7a385155, 0x7c97ba98, 0x0d082d73],
+                [0xa0290fcb, 0x6965e348, 0x3e53c612, 0xed7aee32],
+                [0x7621b729, 0x434ee69c, 0xb03371d5, 0xd539d874],
+                [0x281fed31, 0x45fb0a51, 0x1f0ae1ac, 0x6f4d794b],
+            ], dtype=jnp.uint32)
+        ]
+
+        results = jax.vmap(_block)(states)
+        self.assertEqual(results.shape, (7, *ChaChaStateShape))
+        self.assertTrue(jnp.all(expected[0] == results[0]))
+        self.assertTrue(jnp.all(expected[1] == results[1]))
+
+    def test_block_double_batchdim_fails_for_single_vmap(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([setup_state(key, iv, counter) for counter in range(7)])
+        states = jnp.array((states, states))
+
+        with self.assertRaises(ValueError):
+            jax.vmap(_block)(states)
+
+    def test_block_doubly_vectorized(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([setup_state(key, iv, counter) for counter in range(7)])
+        states = jnp.array((states, states))
+        expected = [
+            jnp.array([
+                [0xade0b876, 0x903df1a0, 0xe56a5d40, 0x28bd8653],
+                [0xb819d2bd, 0x1aed8da0, 0xccef36a8, 0xc70d778b],
+                [0x7c5941da, 0x8d485751, 0x3fe02477, 0x374ad8b8],
+                [0xf4b8436a, 0x1ca11815, 0x69b687c3, 0x8665eeb2],
+            ], dtype=jnp.uint32),
+            jnp.array([
+                [0xbee7079f, 0x7a385155, 0x7c97ba98, 0x0d082d73],
+                [0xa0290fcb, 0x6965e348, 0x3e53c612, 0xed7aee32],
+                [0x7621b729, 0x434ee69c, 0xb03371d5, 0xd539d874],
+                [0x281fed31, 0x45fb0a51, 0x1f0ae1ac, 0x6f4d794b],
+            ], dtype=jnp.uint32)
+        ]
+
+        results = jax.vmap(jax.vmap(_block))(states)
+        self.assertEqual(results.shape, (2, 7, *ChaChaStateShape))
+        self.assertTrue(jnp.all(expected[0] == results[0][0]))
+        self.assertTrue(jnp.all(expected[1] == results[0][1]))
+        self.assertTrue(jnp.all(results[0] == results[1]))
+
+    def test_block_doubly_vectorized_out_of_order(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([[setup_state(key, iv, counter + i * 7) for counter in range(7)] for i in range(5)])
+
+        baseline = jnp.array([
+            [
+                _block(jnp.array(state))  # casting to jnp.array explicity to prevent failure with old jax versions
+                for state in i_states
+            ] for i_states in states
+        ])
+
+        assert states.shape == (5, 7, 4, 4)
+        expected = [
+            jnp.array([
+                [0xade0b876, 0x903df1a0, 0xe56a5d40, 0x28bd8653],
+                [0xb819d2bd, 0x1aed8da0, 0xccef36a8, 0xc70d778b],
+                [0x7c5941da, 0x8d485751, 0x3fe02477, 0x374ad8b8],
+                [0xf4b8436a, 0x1ca11815, 0x69b687c3, 0x8665eeb2],
+            ], dtype=jnp.uint32),
+            jnp.array([
+                [0xbee7079f, 0x7a385155, 0x7c97ba98, 0x0d082d73],
+                [0xa0290fcb, 0x6965e348, 0x3e53c612, 0xed7aee32],
+                [0x7621b729, 0x434ee69c, 0xb03371d5, 0xd539d874],
+                [0x281fed31, 0x45fb0a51, 0x1f0ae1ac, 0x6f4d794b],
+            ], dtype=jnp.uint32)
+        ]
+
+        results = jax.vmap(jax.vmap(_block), in_axes=1)(states)
+        self.assertEqual(results.shape, (7, 5, *ChaChaStateShape))
+        self.assertTrue(jnp.all(expected[0] == results[0][0]))
+        self.assertTrue(jnp.all(expected[1] == results[1][0]))
+
+        for c in range(7):
+            for i in range(5):
+                self.assertTrue(jnp.all(results[c, i] == baseline[i, c]), f"Wrong output for i={i}, c={c}")
+
+    def test_block_triply_vectorized_out_of_order(self) -> None:
+        key = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+            b'\x00\x00\x00\x00\x00\x00\x00'
+        iv = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+        states = jnp.array([
+            [
+                [
+                    setup_state(key, iv, counter + i * 7 + j * 7 * 2)
+                    for counter in range(7)
+                ] for i in range(2)
+            ] for j in range(3)
+        ])
+
+        baseline = jnp.array([
+            [
+                [
+                    _block(jnp.array(state))  # casting to jnp.array explicity to prevent failure with old jax versions
+                    for state in ij_states
+                ] for ij_states in j_states
+            ] for j_states in states
+        ])
+
+        assert states.shape == (3, 2, 7, 4, 4)
+        expected = [
+            jnp.array([
+                [0xade0b876, 0x903df1a0, 0xe56a5d40, 0x28bd8653],
+                [0xb819d2bd, 0x1aed8da0, 0xccef36a8, 0xc70d778b],
+                [0x7c5941da, 0x8d485751, 0x3fe02477, 0x374ad8b8],
+                [0xf4b8436a, 0x1ca11815, 0x69b687c3, 0x8665eeb2],
+            ], dtype=jnp.uint32),
+            jnp.array([
+                [0xbee7079f, 0x7a385155, 0x7c97ba98, 0x0d082d73],
+                [0xa0290fcb, 0x6965e348, 0x3e53c612, 0xed7aee32],
+                [0x7621b729, 0x434ee69c, 0xb03371d5, 0xd539d874],
+                [0x281fed31, 0x45fb0a51, 0x1f0ae1ac, 0x6f4d794b],
+            ], dtype=jnp.uint32)
+        ]
+
+        results = jax.vmap(jax.vmap(jax.vmap(_block), in_axes=1), in_axes=1)(states)
+        self.assertEqual(results.shape, (2, 7, 3, *ChaChaStateShape))
+        self.assertTrue(jnp.all(expected[0] == results[0][0][0]))
+        self.assertTrue(jnp.all(expected[1] == results[0][1][0]))
+
+        for i in range(2):
+            for c in range(7):
+                for j in range(3):
+                    self.assertTrue(
+                        jnp.all(results[i, c, j] == baseline[j, i, c]),
+                        f"Wrong output for i={i}, j={j}, c={c}"
+                    )
 
 
 if __name__ == '__main__':
