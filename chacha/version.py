@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
 MAJOR_VERSION = 1
-MINOR_VERSION = 0
+MINOR_VERSION = 1
 PATCH_VERSION = 0
 EXT_VERSION = ""
 
