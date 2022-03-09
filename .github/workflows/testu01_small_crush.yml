@@ -6,7 +6,7 @@ name: TestU01 Small Crush
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ stable ]
+    branches: [ "*stable" ]
 
 jobs:
   small-crush:
