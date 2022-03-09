@@ -6,7 +6,7 @@ name: Jax Compatibility Tests
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ master, stable ]
+    branches: [ master, "*stable" ]
 
 jobs:
   unittests-with-minimum-jaxlib:
