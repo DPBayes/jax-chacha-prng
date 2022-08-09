@@ -58,9 +58,15 @@ State construction and use:
 
 ## Installing
 
-For the latest stable version install from the `v1-stable` branch via `pip`:
+For the latest stable version install from the `stable` branch via `pip`:
 ```
-pip install git+https://github.com/DPBayes/jax-chacha-prng@v1-stable#egg=jax-chacha-prng
+pip install git+https://github.com/DPBayes/jax-chacha-prng@stable#egg=jax-chacha-prng
+```
+
+For the latest stable release of major version X, use the `vX-stable` branch, i.e.,
+for major version 2 use
+```
+pip install git+https://github.com/DPBayes/jax-chacha-prng@v2-stable#egg=jax-chacha-prng
 ```
 
 Installation will compile CUDA kernels if the CUDA library is present on the system,
