@@ -22,9 +22,9 @@ The package currently exposes basic RNG functions using the same interface as `J
 
 - `chacha.random.PRNGKey`: Equivalent to `jax.random.PRNGKey`: Given a seed of up to 256 bits, it returns a `PRNGKey` object from which randomness can be generated.
 - `chacha.random.split`: Equivalent to `jax.random.split`: Splits a given `PRNGKey` into the desired number of fresh `PRNGKey` instances.
-- `chacha.random.fold_in`: Equivalent to `jax.random.fold_in`: Deterministically derives a new `PRNGKey` from a given one and additional data.
+- `chacha.random.fold_in`: *!Only available before version 2!* Equivalent to `jax.random.fold_in`: Deterministically derives a new `PRNGKey` from a given one and additional data.
 - `chacha.random.random_bits`: Equivalent to `jax._src.random._random_bits`: Raw access to random bits, returned as an array of unsinged integers.
-- `chacha.random.uniform`: Equivalent to `jax.random.uniform`: Uniformly sampled floating point numbers in the range `[0, 1)`.
+- `chacha.random.uniform`: Equivalent to `jax.random.uniform`: Uniformly sampled floating point numbers in a given range `[min, max)`.
 
 *Note*: `PRNGKey` instances of this ChaCha20-based RNG are not interoperable with those of `jax.random`, i.e., you cannot mix them.
 
