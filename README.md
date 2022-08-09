@@ -28,6 +28,9 @@ The package currently exposes basic RNG functions using the same interface as `J
 
 *Note*: `PRNGKey` instances of this ChaCha20-based RNG are not interoperable with those of `jax.random`, i.e., you cannot mix them.
 
+**Security notice**: Versions prior to 2.0.0 may repeat random states via the `split` and `fold_in` functions and
+therefore not produce sufficiently random outputs.
+
 #### Usage notes
 Per conventions of pseudo-random number generation in the `JAX` framework, the functions `random_bits` and `uniform` are
 deterministic given the randomness state (the `PRNGKey` object). The user needs to split the state using `split` before each
