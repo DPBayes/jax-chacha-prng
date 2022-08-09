@@ -1,19 +1,27 @@
+- 2.0.0-rc.1:
+    - Added: random.is_state_invalidated to check if a PRNGKey was invalidated.
+    - Changed: random.split now can perform nested splits only up to a limit and returns
+        an invalidated state if this limit is exceeded. This is to guarantee
+        unique states after each split derived from the same inital randomness state.
+    - Changed: random.random_bits now returns an additional error flag integer,
+        which is set if the input randomness state was invalidated or the
+        randomness counter overflows.
+    - Changed: random.uniform now returns all NaNs if the input randomness state
+        was invalidated or the randomness counter overflows.
+    - Removed: random.fold_in.
+- 1.2.0:
+    - Deprecated: random.fold_in.
 - 1.1.1:
     - Added: support for jax up to v0.3.13.
 - 1.1.0:
     - Added: support for multiple layers of vmap wraps for functions in chacha.random.
     - Added: support for jax up to v0.3.1.
 - 1.0.0:
-    - Added: chacha.native.cuda_supported, returns True if cuda kernels were compiled.
-    - Added: support for jax up to v0.2.27.
-- 1.0.0-rc.3:
-    - Added: wheels for Python 3.10.
-- 1.0.0-rc.2:
-    - Added: support for jax v0.2.21 - v0.2.22.
-    - Removed: support for jax v0.2.10 - v0.2.11.
-- 1.0.0-rc.1:
-    - Added: support for jax v0.2.15 - v0.2.20.
     - Added: Native implementations for ChaCha block function as JAX ops.
+    - Added: chacha.native.cuda_supported, returns True if cuda kernels were compiled.
+    - Added: wheels for Python 3.10.
+    - Added: support for jax up to v0.2.27.
+    - Removed: support for jax v0.2.10 - v0.2.11.
 - 0.1.0-alpha.2:
     - Fix: random.random_bits() no longer fails for empty shape.
     - Added: support for jax v0.2.14.
