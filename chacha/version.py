@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
-MAJOR_VERSION = 1
-MINOR_VERSION = 1
-PATCH_VERSION = 1
+MAJOR_VERSION = 2
+MINOR_VERSION = 0
+PATCH_VERSION = 0
 EXT_VERSION = ""
 
 EXT_VERSION_SUFFIX = f"-{EXT_VERSION}" if len(EXT_VERSION) > 0 else ""

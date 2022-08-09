@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
 name: Python Unittests
 
@@ -34,7 +34,7 @@ jobs:
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics --ignore=E266 chacha tests
+        flake8 --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics --ignore=E266,W503 chacha tests
     - name: Install dependencies
       run: |
         python -m pip install -e .[tests]

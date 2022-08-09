@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
 """ A JAX-accelerated implementation of the 20-round ChaCha cipher.
 
@@ -17,6 +17,12 @@ from chacha.defs import \
     ChaChaStateElementType, ChaChaNonceSizeInBytes, ChaChaNonceSizeInWords,\
     ChaChaCounterSizeInWords, ChaChaStateBitSize, ChaChaState, state_verified
 from chacha.jax_ops import chacha20_block as _block
+
+
+class CounterOverflowException(Exception):
+
+    def __init__(self) -> None:
+        super().__init__("The block counter has exceeded its limit.")
 
 
 #### STATE SETUP AND MANIPULATION FUNCTIONS ####
@@ -131,7 +137,7 @@ def get_counter(state: ChaChaState) -> int:
     Returns:
       The counter value of the given state.
     """
-    return int(state[3, 0])
+    return state[3, 0]
 
 
 @state_verified()
@@ -145,7 +151,7 @@ def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
     Returns:
       The new ChaCha cipher state with the given nonce value.
     """
-    assert jnp.shape(nonce) == (3,)
+    assert jnp.shape(nonce) == (ChaChaNonceSizeInWords,)
     assert jnp.dtype(state) == jnp.dtype(nonce)
     return state.at[3, 1:4].set(nonce)
 
@@ -223,6 +229,9 @@ def encrypt(message: bytes, state: ChaChaState) -> Tuple[bytes, ChaChaState]:
 
         state = increment_counter(state)
         block_nr += 1
+
+        if get_counter(state) == 0:
+            raise CounterOverflowException()
 
     return ciphertext, state
 

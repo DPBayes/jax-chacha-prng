@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
 import unittest
 import testconfig  # noqa
@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 
 from chacha.cipher import \
-    setup_state, encrypt, decrypt, encrypt_with_key,\
+    CounterOverflowException, setup_state, encrypt, decrypt, encrypt_with_key,\
     decrypt_with_key, set_nonce, get_nonce, get_counter, increment_counter, serialize
 from chacha.cipher import _block
 from chacha.defs import ChaChaState, ChaChaStateElementType, ChaChaStateShape
@@ -62,11 +62,11 @@ class ChaCha20CipherTests(unittest.TestCase):
             [0xd19c12b5, 0xb94e16de, 0xe883d0cb, 0x4e3c50a2],
         ], dtype=jnp.uint32)
 
-        expected = \
+        expected_raw = \
             b'\x10\xf1\xe7\xe4\xd1\x3b\x59\x15\x50\x0f\xdd\x1f\xa3\x20\x71\xc4\xc7\xd1\xf4\xc7\x33\xc0\x68\x03\x04'\
             b'\x22\xaa\x9a\xc3\xd4\x6c\x4e\xd2\x82\x64\x46\x07\x9f\xaa\x09\x14\xc2\xd7\x05\xd9\x8b\x02\xa2\xb5\x12'\
             b'\x9c\xd1\xde\x16\x4e\xb9\xcb\xd0\x83\xe8\xa2\x50\x3c\x4e'
-        expected = np.frombuffer(expected, dtype=np.uint8)
+        expected = np.frombuffer(expected_raw, dtype=np.uint8)
 
         y = serialize(state)
 
@@ -335,6 +335,19 @@ class ChaCha20CipherTests(unittest.TestCase):
         self.assertEqual(expected_counter, new_counter)
         self.assertEqual(message, recovered_message)
 
+    def test_encrypt_counter_overflow(self) -> None:
+        state = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c],
+            [0x13121110, 0x17161514, 0x1b1a1918, 0x1f1e1d1c],
+            [0xfffffffe, 0x00000000, 0x4a000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+
+        message = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "\
+                  "sunscreen would be it.".encode("ascii")
+        with self.assertRaises(CounterOverflowException):
+            encrypt(message, state)
 
 class ChaCha20CipherAdditionalVectorTests(unittest.TestCase):
 

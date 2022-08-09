@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 """ Interfacing module for accessing Python ChaCha20RNG implementation from TestU01 framework. """
 
 import jax.config
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from chacha.random import PRNGKey, uniform, random_bits, split
+from chacha.random import PRNGKey, uniform, random_bits, split, ErrorFlag
 from chacha.cipher import increase_counter, get_counter
 import numpy as np
 from typing import Tuple
@@ -43,7 +43,12 @@ def bits_and_state_update(rng_key: jnp.array, count: int) -> Tuple[jnp.array, jn
         rng_key = split(rng_key, 1)[0]
         next_rng_key = increase_counter(rng_key, num_blocks)
 
-    random_data = random_bits(rng_key, 32, (count,))
+    random_data, error = random_bits(rng_key, 32, (count,))
+
+    if error:
+        ef = ErrorFlag(error)
+        raise Exception(f"An unexpected error occured when generating randomness {str(ef)}")
+
     return np.array(random_data), next_rng_key
 
 

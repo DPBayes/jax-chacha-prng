@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
 """ A cryptographically secure pseudo-random number generator for JAX.
 
@@ -13,8 +13,9 @@ The following invariants hold:
 - The 32 bit counter in a randomness state is always set to zero; randomness expander such as `random_bits` increment
     it internally to provide streams of randomness.
 - The 96 bit IV is used for randomness state splits using the `split` function; splitting results in a new state
-    that maintains the same cipher key, a counter value of zero and a randomly sampled IV expanded from the key that
-    was split.
+    that maintains the same cipher key, a counter value of zero and a fresh IV derived from the previous IV in such
+    a way that the new IV is unique among all states derived from the same initial key state. An IV value of zero
+    indicates an invalidated state, which may occur when a maximum number of nested splits is reached.
 """
 
 import numpy as np  # type: ignore
@@ -23,6 +24,7 @@ import jax.numpy as jnp
 from jax._src.random import _check_shape
 import typing
 from functools import partial
+from enum import IntFlag
 
 import chacha.cipher as cc
 from chacha import defs
@@ -55,17 +57,36 @@ except (AttributeError, ImportError):  # pragma: no cover
 RNGState = cc.ChaChaState
 
 
+class ErrorFlag(IntFlag):
+    """Possible error states returned from `random_bits`."""
+    CounterOverflow = 1,
+    InvalidState = 2,
+
+
+@jax.jit
+def is_state_invalidated(rng_key: RNGState) -> bool:
+    return jnp.all(cc.get_nonce(rng_key) == 0)
+
+
 @partial(jax.jit, static_argnums=(1, 2))
-def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) -> jnp.ndarray:
-    """ Generate an array containing random integers.
+def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int])\
+        -> typing.Tuple[jnp.ndarray, jnp.uint32]:
+    """ Generates an array containing random integers.
+
+    Note that this function enters a failure state if the `rng_key` is invalidated
+    or the randomness counter overflows. In those cases, a flag indicating the
+    error is set in the second output, while the first output is zeroed out instead
+    of containing an array of random values.
 
     Args:
-      rng_key: The PRNGKey object from which to generate random bits.
+      rng_key: The not-invalidated PRNGKey object from which to generate random bits.
       bit_width: The number of bits in each element of the output.
       shape: The shape of the output array.
 
     Returns:
-      An array of the given shape containing uniformly random unsigned integers with the given bit width.
+      A tuple containing
+        - array of the given shape containing uniformly random unsigned integers with the given bit width,
+        - an integer representing an array of error flags (see `ErrorFlag`)
     """
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
@@ -85,25 +106,39 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     out = cc.serialize(blocks, dtype)
     assert jnp.size(out) >= size
 
-    return out[:size].reshape(shape)
+    counter_exceeded = cc.get_counter(rng_key) >= jnp.uint32(-num_blocks)
+    error_flags = jnp.uint32((is_state_invalidated(rng_key) << 1) ^ counter_exceeded)
+
+    out = out[:size].reshape(shape)
+    out = jnp.where(error_flags == 0, out, out ^ out)
+
+    return out, error_flags
 
 
 @partial(jax.jit, static_argnums=(1,))
 def _split(rng_key: RNGState, num: int) -> RNGState:
-    ivs = random_bits(rng_key, defs.ChaChaStateElementBitWidth, (num, defs.ChaChaNonceSizeInWords))
+    bitlength_num = num.bit_length()
+    if bitlength_num > 32:
+        raise ValueError("Splits into more than 2^32 new keys are currently not supported.")
 
-    def make_rng_key(nonce: jnp.ndarray) -> RNGState:
-        assert jnp.shape(nonce) == (defs.ChaChaNonceSizeInWords,)
-        assert jnp.dtype(nonce) == defs.ChaChaStateElementType
+    old_nonce = cc.get_nonce(rng_key)
+
+    old_nonce = jnp.concatenate((old_nonce, jnp.zeros((1,), rng_key.dtype)))
+    assert old_nonce.shape == (defs.ChaChaNonceSizeInWords + 1,)
+    new_nonce_base = ((old_nonce[:defs.ChaChaNonceSizeInWords] << bitlength_num)
+                      ^ (old_nonce[1:] >> (32 - bitlength_num)))
+    assert new_nonce_base.shape == (defs.ChaChaNonceSizeInWords,)
+
+    split_nesting_exceeded = (old_nonce[0] >= (1 << (32 - bitlength_num))) | jnp.all(old_nonce == 0)
+
+    def make_rng_key(i: int) -> RNGState:
+        nonce = jnp.concatenate((new_nonce_base[:defs.ChaChaNonceSizeInWords - 1], new_nonce_base[-1:] ^ i))
+        nonce *= (1 - split_nesting_exceeded)  # set the nonce to 0 (invalid state) if split nesting limit is exceeded
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
-    return jax.vmap(make_rng_key)(ivs)
+    return jax.vmap(make_rng_key)(jnp.arange(num, dtype=rng_key.dtype))
 
-
-@jax.jit
-def fold_in(rng_key: RNGState, data: int) -> RNGState:
-    iv = cc.get_nonce(cc._block(cc.set_counter(rng_key, data)))
-    return cc.set_counter(cc.set_nonce(rng_key, iv), 0)
+# TODO: deprecate fold_in for v1.x update; release changed splitting as v2
 
 
 @partial(jax.jit, static_argnums=(1, 2))
@@ -129,7 +164,7 @@ def _uniform(
 
     assert nbits in (16, 32, 64)
 
-    bits = random_bits(rng_key, nbits, shape)
+    bits, errors = random_bits(rng_key, nbits, shape)
 
     # The strategy here is to randomize only the mantissa bits with an exponent of
     # 1 (after applying the bias), then shift and scale to the desired range. The
@@ -140,10 +175,12 @@ def _uniform(
         np.array(1., dtype).view(_UINT_DTYPES[nbits])
     )
     floats = jax.lax.bitcast_convert_type(float_bits, dtype) - np.array(1., dtype)
-    return jax.lax.max(
+    result = jax.lax.max(
         minval,
         jax.lax.reshape(floats * (maxval - minval) + minval, shape)
     )
+
+    return jnp.where(errors == 0, result, result * jnp.nan)
 
 
 def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
@@ -167,18 +204,27 @@ def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
         seed_buffer = np.frombuffer(seed, dtype=np.uint8)
         key_buffer = np.zeros(defs.ChaChaKeySizeInBytes, dtype=np.uint8)
         key_buffer[:len(seed_buffer)] = seed_buffer
-        key_buffer = key_buffer.view(jnp.uint32)
+        key_buffer = key_buffer.view(defs.ChaChaStateElementType)
     else:
         raise TypeError(f"seed must be either an array, an integer or a bytes objects; got {type(seed)}.")
 
-    key = jnp.array(key_buffer).flatten()[0:8]
-    key = jnp.pad(key, (8 - jnp.size(key), 0), mode='constant')
-    iv = jnp.zeros(3, dtype=jnp.uint32)
-    return cc.setup_state(key, iv, jnp.zeros(1, dtype=jnp.uint32))
+    key = jnp.array(key_buffer).flatten()[0:defs.ChaChaKeySizeInWords]
+    key = jnp.pad(key, (defs.ChaChaKeySizeInWords - jnp.size(key), 0), mode='constant')
+    iv = jnp.zeros(defs.ChaChaNonceSizeInWords, dtype=defs.ChaChaStateElementType)
+    iv = iv.at[-1].set(1)
+    counter = jnp.zeros(defs.ChaChaCounterSizeInWords, dtype=defs.ChaChaStateElementType)
+    return cc.setup_state(key, iv, counter)
 
 
 def split(rng_key: RNGState, num: int = 2) -> typing.Sequence[RNGState]:
     """Splits a PRNG key into `num` new keys by adding a leading axis.
+
+    Splits can be nested up to 96 times, after which it can no longer be guaranteed
+    that PRNG states are not repeated. If this limit is exceeded, the returned
+    split states are invalidated by setting their nonces to 0. The same is true
+    if the input `rng_key` is already an invalidated state.
+
+    Calling code should verify that this is not the case where neccessary.
 
     Args:
       key: A PRNGKey (an array with shape (4,4) and dtype uint32).
@@ -198,6 +244,9 @@ def uniform(
         maxval: typing.Union[float, jnp.ndarray] = 1.
     ) -> jnp.ndarray:  # noqa:E121,E125
     """Samples uniform random values in [minval, maxval) with given shape/dtype.
+
+    If `key` was invalidated or producing random data results in a randomness counter overflow,
+    the output will be an array of the requested size, containing only NaN values.
 
     Args:
       key: The PRNGKey.

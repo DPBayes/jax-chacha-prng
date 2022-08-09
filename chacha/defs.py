@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2021,2022 Aalto University
 
 """ A JAX-accelerated implementation of the 20-round ChaCha cipher.
 
@@ -17,6 +17,7 @@ ChaChaStateElementType = jnp.uint32
 ChaChaStateElementBitWidth = jnp.iinfo(ChaChaStateElementType).bits
 ChaChaStateBitSize = ChaChaStateElementCount * ChaChaStateElementBitWidth
 
+# "Word" == "Element", i.e., WordSize = ChaChaStateElementType (= 32 bits)
 ChaChaKeySizeInBits = 256
 ChaChaKeySizeInBytes = ChaChaKeySizeInBits >> 3
 ChaChaKeySizeInWords = ChaChaKeySizeInBytes >> 2
