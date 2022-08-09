@@ -79,7 +79,7 @@ if 'JAX_CHACHA_PRNG_BUILD' in os.environ:
 setuptools.setup(
     name='jax-chacha-prng',
     version=_version,
-    author="Lukas Prediger",
+    author="Lukas Prediger for Aalto University",
     author_email="lukas.m.prediger@aalto.fi",
     description="A pseudo-random number generator for JAX based on the 20 round ChaCha cipher.",
     long_description=long_description,
@@ -89,6 +89,7 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "numpy >= 1.16, < 2",
+        "deprecation < 3",
         f"jax{_jax_version_lower_constraint}{_jax_version_optimistic_upper_constraint}"
     ],
     extras_require={
