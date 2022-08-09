@@ -23,9 +23,11 @@ import jax.numpy as jnp
 from jax._src.random import _check_shape
 import typing
 from functools import partial
+import deprecation
 
 import chacha.cipher as cc
 from chacha import defs
+from chacha.version import VERSION
 
 # importing canonicalize_shape function
 try:
@@ -101,6 +103,9 @@ def _split(rng_key: RNGState, num: int) -> RNGState:
 
 
 @jax.jit
+@deprecation.deprecated(deprecated_in="1.2.0", removed_in="2.0.0",
+                        current_version=VERSION,
+                        details="Deriving new random states will only be possible using the split function in future.")
 def fold_in(rng_key: RNGState, data: int) -> RNGState:
     iv = cc.get_nonce(cc._block(cc.set_counter(rng_key, data)))
     return cc.set_counter(cc.set_nonce(rng_key, iv), 0)
