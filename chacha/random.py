@@ -138,8 +138,6 @@ def _split(rng_key: RNGState, num: int) -> RNGState:
 
     return jax.vmap(make_rng_key)(jnp.arange(num, dtype=rng_key.dtype))
 
-# TODO: deprecate fold_in for v1.x update; release changed splitting as v2
-
 
 @partial(jax.jit, static_argnums=(1, 2))
 def _uniform(
