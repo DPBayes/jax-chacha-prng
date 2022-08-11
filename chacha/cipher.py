@@ -73,12 +73,12 @@ def setup_state(
     elif jax.lax.dtype(counter) != ChaChaStateElementType or jnp.size(counter) != ChaChaCounterSizeInWords:
         raise ValueError("counter must be a single 32-bit unsigned integer!")
 
-    key_bits = key_array.size * 4
-    if key_bits == 16:
+    key_bytes = key_array.size * 4
+    if key_bytes == 16:
         key_array = jnp.tile(key_array, 2)
     key_array = key_array.reshape(2, 4)  # type: ignore # numpy seems confused about this
     inputs = jnp.hstack((counter, iv_array))
-    state = ChaChaState(jnp.vstack((KEY_GEN_CONSTANTS[key_bits], key_array, inputs)))
+    state = ChaChaState(jnp.vstack((KEY_GEN_CONSTANTS[key_bytes], key_array, inputs)))
     return state
 
 
