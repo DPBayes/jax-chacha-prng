@@ -28,6 +28,11 @@ The package currently exposes basic RNG functions using the same interface as `J
 
 *Note*: `PRNGKey` instances of this ChaCha20-based RNG are not interoperable with those of `jax.random`, i.e., you cannot mix them.
 
+`random_bits` and (optionally) `uniform` return a new rng key resulting from advancing the counter field in the key provided to them
+according to the amount of randomness they were tasked to produce. This key may be used for subsequent calls to producing randomness,
+but CANNOT be used as an input for `split`.
+
+
 **Security notice**: Versions prior to 2.0.0 may repeat random states via the `split` and `fold_in` functions and
 therefore not produce sufficiently random outputs.
 

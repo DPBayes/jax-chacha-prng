@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import jax
 
 from chacha.random import split, PRNGKey, random_bits, uniform, _uniform, is_state_invalidated, ErrorFlag
-from chacha.cipher import set_counter
+from chacha.cipher import increase_counter, set_counter, get_counter, increment_counter
 import numpy as np  # type: ignore
 
 
@@ -22,26 +22,34 @@ class ChaChaRNGTests(unittest.TestCase):
         ], dtype=jnp.uint32)
 
         shape = (17, 9)
-        x, error = random_bits(rng_key, 8, shape)
+        x, next_rng_key, error = random_bits(rng_key, 8, shape)
         self.assertEqual(0, error)
         self.assertEqual(x.dtype, jnp.uint8)
         self.assertEqual(x.shape, shape)
+        expected_next_rng_key = increase_counter(rng_key, 3)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
 
-        x, error = random_bits(rng_key, 16, shape)
+        x, next_rng_key, error = random_bits(rng_key, 16, shape)
         self.assertEqual(0, error)
         self.assertEqual(x.dtype, jnp.uint16)
         self.assertEqual(x.shape, shape)
+        expected_next_rng_key = increase_counter(rng_key, 5)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
 
-        x, error = random_bits(rng_key, 32, shape)
+        x, next_rng_key, error = random_bits(rng_key, 32, shape)
         self.assertEqual(0, error)
         self.assertEqual(x.dtype, jnp.uint32)
         self.assertEqual(x.shape, shape)
+        expected_next_rng_key = increase_counter(rng_key, 10)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
 
         # needs 64bit jax mode
-        x, error = random_bits(rng_key, 64, shape)
+        x, next_rng_key, error = random_bits(rng_key, 64, shape)
         self.assertEqual(0, error)
         self.assertEqual(x.dtype, jnp.uint64)
         self.assertEqual(x.shape, shape)
+        expected_next_rng_key = increase_counter(rng_key, 20)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
 
     def test_is_state_invalidated(self) -> None:
         rng_key = jnp.array([
@@ -67,7 +75,7 @@ class ChaChaRNGTests(unittest.TestCase):
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
             [0x00000000, 0x00000000, 0x00000000, 0x00000000],
             [0x00000000, 0x00000000, 0x00000000, 0x00000000],
-            [0xe56a5d40, 0x00000000, 0x00000000, 0x00000001],
+            [0x00000000, 0x00000000, 0x00000000, 0x00000001],
         ], dtype=jnp.uint32)
 
         # 6 splits from initial
@@ -153,7 +161,7 @@ class ChaChaRNGTests(unittest.TestCase):
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
             [0xbbbbbbbb, 0x00000000, 0x00000000, 0x00000000],
             [0x00000000, 0x00000000, 0x00000000, 0xaaaaaaaa],
-            [0xbe57823a, 0x40000000, 0x00000000, 0x00000000],
+            [0x00000000, 0x40000000, 0x00000000, 0x00000000],
         ], dtype=jnp.uint32)
 
         split_keys = split(rng_key, 5)
@@ -166,7 +174,7 @@ class ChaChaRNGTests(unittest.TestCase):
             [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
             [0xbbbbbbbb, 0x00000000, 0x00000000, 0x00000000],
             [0x00000000, 0x00000000, 0x00000000, 0xaaaaaaaa],
-            [0xbe57823a, 0x00000000, 0x00000000, 0x00000000],
+            [0x00000000, 0x00000000, 0x00000000, 0x00000000],
         ], dtype=jnp.uint32)
         assert is_state_invalidated(rng_key)
 
@@ -179,6 +187,19 @@ class ChaChaRNGTests(unittest.TestCase):
         rng_key = PRNGKey(23456)
         with self.assertRaises(ValueError):
             split(rng_key, 2**32)
+
+    def test_split_invalidates_when_nonzero_counter(self) -> None:
+        rng_key = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0xbbbbbbbb, 0x00000000, 0x00000000, 0x00000000],
+            [0x00000000, 0x00000000, 0x00000000, 0xaaaaaaaa],
+            [0xbe57823a, 0x00000000, 0x00000000, 0x00000006],
+        ], dtype=jnp.uint32)
+
+        split_keys = split(rng_key, 5)
+
+        for split_key in split_keys:
+            self.assertTrue(is_state_invalidated(split_key))
 
     def test_PRNGKey_from_int(self) -> None:
         x = 9651354789628635673475235
@@ -236,6 +257,21 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertTrue(np.all(data >= minval))
         self.assertTrue(np.all(data <= maxval))
 
+    def test_uniform_with_next_key(self) -> None:
+        rng_key = PRNGKey(0)
+        shape = (3, 12)
+        minval = 1
+        maxval = 3
+        dtype = jnp.float32
+        data, next_rng_key = uniform(rng_key, shape, dtype, minval, maxval, return_next_key=True)
+
+        self.assertEqual(jnp.float32, data.dtype)
+        self.assertEqual(shape, data.shape)
+        self.assertTrue(np.all(data >= minval))
+        self.assertTrue(np.all(data <= maxval))
+        expected_next_rng_key = increase_counter(rng_key, 3)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
+
     def test_uniform_scalar(self) -> None:
         rng_key = PRNGKey(0)
         sample = uniform(rng_key)
@@ -255,6 +291,26 @@ class ChaChaRNGTests(unittest.TestCase):
         self.assertTrue(np.all(data >= minval))
         self.assertTrue(np.all(data <= maxval))
 
+    def test_uniform_vmap_with_next_key(self) -> None:
+        rng_key = PRNGKey(0)
+        batch_keys = split(rng_key, 7)
+        shape = (3, 12)
+        minval = 1
+        maxval = 3
+        dtype = jnp.float32
+        data, next_rng_keys = jax.vmap(
+            lambda key: uniform(key, shape, dtype, minval, maxval, return_next_key=True)
+        )(batch_keys)
+
+        self.assertEqual(jnp.float32, data.dtype)
+        self.assertEqual((7, *shape), data.shape)
+        self.assertTrue(np.all(data >= minval))
+        self.assertTrue(np.all(data <= maxval))
+        expected_next_rng_keys = np.zeros_like(batch_keys, dtype=batch_keys.dtype)
+        for i in range(7):
+            expected_next_rng_keys[i] = increase_counter(batch_keys[i], 3)
+        self.assertTrue(np.all(expected_next_rng_keys == next_rng_keys))
+
     def test_uniform_scalar_vmap(self) -> None:
         rng_key = PRNGKey(0)
         batch_keys = split(rng_key, 7)
@@ -265,19 +321,26 @@ class ChaChaRNGTests(unittest.TestCase):
         """ verifies that there is no difference between sampling two blocks directly
             or separately (while manually increasing counter) """
         rng_key = PRNGKey(0)
-        single_vals, _ = random_bits(rng_key, 32, (32,))
-        multi_vals_1, _ = random_bits(rng_key, 32, (16,))
-        rng_key_2 = set_counter(rng_key, 1)
-        multi_vals_2, _ = random_bits(rng_key_2, 32, (16,))
+        single_vals, next_rng_key, _ = random_bits(rng_key, 32, (32,))
+        multi_vals_1, next_rng_key_multi_1, _ = random_bits(rng_key, 32, (16,))
+        multi_vals_2, next_rng_key_multi_2, _ = random_bits(next_rng_key_multi_1, 32, (16,))
         self.assertTrue(np.all(single_vals[:16] == multi_vals_1))
         self.assertTrue(np.all(single_vals[16:] == multi_vals_2))
 
+        expected_next_rng_key = increase_counter(rng_key, 2)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
+        expected_next_rng_key_multi_1 = increase_counter(rng_key, 1)
+        self.assertTrue(np.all(expected_next_rng_key_multi_1 == next_rng_key_multi_1))
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key_multi_2))
+
     def test_random_bits_scalar(self) -> None:
         rng_key = PRNGKey(0)
-        sample, error = random_bits(rng_key, 32, ())
+        sample, next_rng_key, error = random_bits(rng_key, 32, ())
         self.assertEqual(0, error)
         self.assertEqual((), jnp.shape(sample))
         self.assertEqual(jnp.uint32, jnp.dtype(sample))
+        expected_next_rng_key = increase_counter(rng_key, 1)
+        self.assertTrue(np.all(expected_next_rng_key == next_rng_key))
 
     def test_random_bits_invalid_width(self) -> None:
         rng_key = PRNGKey(0)
@@ -300,9 +363,10 @@ class ChaChaRNGTests(unittest.TestCase):
             [0xbe57823a, 0x00000000, 0x00000000, 0x00000000],
         ], dtype=jnp.uint32)
 
-        x, error = random_bits(rng_key, 32, (1, 5))
+        x, next_rng_key, error = random_bits(rng_key, 32, (1, 5))
         self.assertTrue(jnp.all(x == 0))
         self.assertEqual(ErrorFlag.InvalidState, error)
+        self.assertTrue(is_state_invalidated(next_rng_key))
 
     def test_random_bits_counter_overflow(self) -> None:
         rng_key = jnp.array([
@@ -313,9 +377,10 @@ class ChaChaRNGTests(unittest.TestCase):
         ], dtype=jnp.uint32)
         # state has one block left to generate
 
-        x, error = random_bits(rng_key, 32, (4, 5))  # will require generating two blocks
+        x, next_rng_key, error = random_bits(rng_key, 32, (4, 5))  # will require generating two blocks
         self.assertTrue(jnp.all(x == 0))
         self.assertEqual(ErrorFlag.CounterOverflow, error)
+        self.assertTrue(is_state_invalidated(next_rng_key))
 
     def test_uniform_invalid_state(self) -> None:
         rng_key = jnp.array([
@@ -339,6 +404,31 @@ class ChaChaRNGTests(unittest.TestCase):
 
         x = uniform(rng_key, (3, 2, 1))
         self.assertTrue(jnp.all(jnp.isnan(x)))
+
+    def test_uniform_invalid_state_with_next_key(self) -> None:
+        rng_key = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0xbbbbbbbb, 0x00000000, 0x00000000, 0x00000000],
+            [0x00000000, 0x00000000, 0x00000000, 0xaaaaaaaa],
+            [0xbe57823a, 0x00000000, 0x00000000, 0x00000000],
+        ], dtype=jnp.uint32)
+
+        x, next_rng_key = uniform(rng_key, (3, 2, 1), return_next_key=True)
+        self.assertTrue(jnp.all(jnp.isnan(x)))
+        self.assertTrue(is_state_invalidated(next_rng_key))
+
+    def test_uniform_counter_overflow_with_next_key(self) -> None:
+        rng_key = jnp.array([
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [0xbbbbbbbb, 0x00000000, 0x00000000, 0x00000000],
+            [0x00000000, 0x00000000, 0x00000000, 0xaaaaaaaa],
+            [0xffffffff, 0x00000000, 0x00000000, 0x00000001],
+        ], dtype=jnp.uint32)
+        # state has zero blocks left to generate
+
+        x, next_rng_key = uniform(rng_key, (3, 2, 1), return_next_key=True)
+        self.assertTrue(jnp.all(jnp.isnan(x)))
+        self.assertTrue(is_state_invalidated(next_rng_key))
 
 
 if __name__ == '__main__':
