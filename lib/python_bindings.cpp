@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2022 Aalto University
 
 #include <pybind11/pybind11.h>
 
@@ -8,6 +8,15 @@
 constexpr bool cuda_supported()
 {
 #ifdef CUDA_ENABLED
+    return true;
+#else
+    return false;
+#endif
+}
+
+constexpr bool openmp_accelerated()
+{
+#ifdef OPENMP_AVAILABLE
     return true;
 #else
     return false;
@@ -25,4 +34,5 @@ PYBIND11_MODULE(native, m)
 #endif // CUDA_ENABLED
 
     m.def("cuda_supported", &cuda_supported, "Returns true if CUDA kernels were compiled.");
+    m.def("openmp_accelerated", &openmp_accelerated, "Returns true if CPU kernels are accelerated using OpenMP.");
 }

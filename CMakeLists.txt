@@ -55,7 +55,12 @@ message(STATUS ${Python3_EXECUTABLE})
 message(STATUS ${Python3_INCLUDE_DIRS})
 # find_package(pybind11 REQUIRED) # broken; does not use correct Python interpreter/libraries in a conda env
 
-find_package(OpenMP REQUIRED)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    add_compile_definitions(OPENMP_AVAILABLE)
+else()
+    message(WARNING "OpenMP not found - Compiling without, but you may see lower performance.")
+endif()
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 
@@ -64,8 +69,11 @@ pybind11_add_module(
     ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
 target_include_directories(native PRIVATE ${cpu_arch_path})
-target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
 target_compile_definitions(native PRIVATE ${cpu_arch_def})
+
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 if (BUILD_TESTING)
     add_executable(cpu_kernel_tests
@@ -74,8 +82,10 @@ if (BUILD_TESTING)
     target_include_directories(cpu_kernel_tests PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/lib/
         ${cpu_arch_path})
-    target_link_libraries(cpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
     target_compile_definitions(cpu_kernel_tests PRIVATE ${cpu_arch_def})
+    if (OpenMP_CXX_FOUND)
+        target_link_libraries(cpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
+    endif()
 endif()
 
 include(CheckLanguage)
@@ -101,6 +111,9 @@ if (CMAKE_CUDA_COMPILER)
         target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
         target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
         set_property(TARGET gpu_kernel_tests PROPERTY CUDA_ARCHITECTURES 35)
+        if (OpenMP_CXX_FOUND)
+            target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
+        endif()
     endif()
 else()
     message(WARNING "CUDA not found - building for CPU only!")
