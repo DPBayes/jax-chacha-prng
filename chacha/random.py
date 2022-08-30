@@ -10,8 +10,8 @@ Its randomness state (the PRNGKey, in JAX lingo) is simply the ChaCha cipher sta
 
 The following invariants hold:
 - The 256 bit key provides base randomness that is expanded by PRNG; it given by the user as seed to function `PRNGKey`
-- The 32 bit counter in a randomness state is always set to zero; randomness expander such as `random_bits` increment
-    it internally to provide streams of randomness.
+- The 32 bit counter in a randomness state is always incremented by randomness expanders such as `random_bits`
+    to provide streams of randomness.
 - The 96 bit IV is used for randomness state splits using the `split` function; splitting results in a new state
     that maintains the same cipher key, a counter value of zero and a fresh IV derived from the previous IV in such
     a way that the new IV is unique among all states derived from the same initial key state. An IV value of zero
@@ -70,7 +70,7 @@ def is_state_invalidated(rng_key: RNGState) -> bool:
 
 @partial(jax.jit, static_argnums=(1, 2))
 def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int])\
-        -> typing.Tuple[jnp.ndarray, jnp.uint32]:
+        -> typing.Tuple[jnp.ndarray, RNGState, jnp.uint32]:
     """ Generates an array containing random integers.
 
     Note that this function enters a failure state if the `rng_key` is invalidated
@@ -79,13 +79,14 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int])\
     of containing an array of random values.
 
     Args:
-      rng_key: The not-invalidated PRNGKey object from which to generate random bits.
+      rng_key: The not-invalidated RNGState object from which to generate random bits.
       bit_width: The number of bits in each element of the output.
       shape: The shape of the output array.
 
     Returns:
       A tuple containing
         - array of the given shape containing uniformly random unsigned integers with the given bit width,
+        - the next RNGState after generating the requested amount of random bits (with the counter value advanced),
         - an integer representing an array of error flags (see `ErrorFlag`)
     """
     if bit_width not in _UINT_DTYPES:
@@ -106,13 +107,17 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int])\
     out = cc.serialize(blocks, dtype)
     assert jnp.size(out) >= size
 
-    counter_exceeded = cc.get_counter(rng_key) >= jnp.uint32(-num_blocks)
+    next_rng_key = cc.increase_counter(rng_key, num_blocks)
+
+    counter_exceeded = cc.get_counter(rng_key) >= cc.get_counter(next_rng_key)  # detect wrap-around of counter
     error_flags = jnp.uint32((is_state_invalidated(rng_key) << 1) ^ counter_exceeded)
 
     out = out[:size].reshape(shape)
     out = jnp.where(error_flags == 0, out, out ^ out)
 
-    return out, error_flags
+    next_rng_key = jnp.where(error_flags == 0, next_rng_key, jnp.zeros_like(rng_key))
+
+    return out, next_rng_key, error_flags
 
 
 @partial(jax.jit, static_argnums=(1,))
@@ -130,22 +135,25 @@ def _split(rng_key: RNGState, num: int) -> RNGState:
     assert new_nonce_base.shape == (defs.ChaChaNonceSizeInWords,)
 
     split_nesting_exceeded = (old_nonce[0] >= (1 << (32 - bitlength_num))) | jnp.all(old_nonce == 0)
+    state_previuosly_used = cc.get_counter(rng_key) > 0
 
     def make_rng_key(i: int) -> RNGState:
         nonce = jnp.concatenate((new_nonce_base[:defs.ChaChaNonceSizeInWords - 1], new_nonce_base[-1:] ^ i))
         nonce *= (1 - split_nesting_exceeded)  # set the nonce to 0 (invalid state) if split nesting limit is exceeded
+        nonce *= (1 - state_previuosly_used) # set the nonced to 0 (invalid state) if the state was already used to generate randomness
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
     return jax.vmap(make_rng_key)(jnp.arange(num, dtype=rng_key.dtype))
 
 
-@partial(jax.jit, static_argnums=(1, 2))
+@partial(jax.jit, static_argnums=(1, 2, 5))
 def _uniform(
         rng_key: RNGState,
         shape: typing.Tuple[int],
         dtype: type,
         minval: jnp.float_,
-        maxval: jnp.float_
+        maxval: jnp.float_,
+        return_next_key: bool = False
     ) -> jnp.ndarray:  # noqa:E121,E125
     _check_shape("uniform", shape)
     if not jnp.issubdtype(dtype, np.floating):
@@ -162,7 +170,7 @@ def _uniform(
 
     assert nbits in (16, 32, 64)
 
-    bits, errors = random_bits(rng_key, nbits, shape)
+    bits, next_rng_key, errors = random_bits(rng_key, nbits, shape)
 
     # The strategy here is to randomize only the mantissa bits with an exponent of
     # 1 (after applying the bias), then shift and scale to the desired range. The
@@ -178,7 +186,10 @@ def _uniform(
         jax.lax.reshape(floats * (maxval - minval) + minval, shape)
     )
 
-    return jnp.where(errors == 0, result, result * jnp.nan)
+    result = jnp.where(errors == 0, result, result * jnp.nan)
+    if return_next_key:
+        return result, next_rng_key
+    return result
 
 
 def PRNGKey(seed: typing.Union[jnp.ndarray, int, bytes]) -> RNGState:
@@ -239,7 +250,8 @@ def uniform(
         shape: typing.Sequence[int] = (),
         dtype: np.dtype = jnp.float64,
         minval: typing.Union[float, jnp.ndarray] = 0.,
-        maxval: typing.Union[float, jnp.ndarray] = 1.
+        maxval: typing.Union[float, jnp.ndarray] = 1.,
+        return_next_key: bool = False
     ) -> jnp.ndarray:  # noqa:E121,E125
     """Samples uniform random values in [minval, maxval) with given shape/dtype.
 
@@ -247,18 +259,20 @@ def uniform(
     the output will be an array of the requested size, containing only NaN values.
 
     Args:
-      key: The PRNGKey.
+      key: The RNGState.
       shape: An optional tuple of nonnegative integers representing the result shape.
       dtype: An optional float dtype for the returned values (default float64).
-      minval: An ptional minimum (inclusive) value broadcast-compatible with shape for the range (default 0).
+      minval: An optional minimum (inclusive) value broadcast-compatible with shape for the range (default 0).
       maxval: An optional maximum (exclusive) value broadcast-compatible with shape for the range (default 1).
+      return_next_key: An optional boolean flag. If `True`, the function returns a new RNGState (with advanced counter).
 
     Returns:
-      A random array with the specified shape and dtype.
+      A random array with the specified shape and dtype if `return_next_key` is `False`.
+      A tuple consisting of the random array and a new RNGState if `return_next_key` is `True`.
 
     """
     if not jax.dtypes.issubdtype(dtype, np.floating):
         raise TypeError(f"dtype argument to `uniform` must be a float dtype, got {dtype}")
     dtype = jax.dtypes.canonicalize_dtype(dtype)
     shape = _canonicalize_shape(shape)
-    return _uniform(key, shape, dtype, minval, maxval)
+    return _uniform(key, shape, dtype, minval, maxval, return_next_key)

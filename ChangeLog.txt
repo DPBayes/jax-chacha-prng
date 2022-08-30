@@ -1,13 +1,15 @@
-- 2.0.0-rc.1:
+- 2.0.0-rc.2:
     - Added: random.is_state_invalidated to check if a PRNGKey was invalidated.
     - Changed: random.split now can perform nested splits only up to a limit and returns
         an invalidated state if this limit is exceeded. This is to guarantee
         unique states after each split derived from the same inital randomness state.
-    - Changed: random.random_bits now returns an additional error flag integer,
+    - Changed: random.random_bits now return a new rng key for subsequent calls to
+        produce randmoness as well as an error flag integer,
         which is set if the input randomness state was invalidated or the
         randomness counter overflows.
     - Changed: random.uniform now returns all NaNs if the input randomness state
-        was invalidated or the randomness counter overflows.
+        was invalidated or the randomness counter overflows. It also accepts additional
+        kwarg return_next_key that returns a new rng key.
     - Removed: random.fold_in.
 - 1.2.0:
     - Deprecated: random.fold_in.
