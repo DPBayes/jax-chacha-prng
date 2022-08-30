@@ -1,4 +1,7 @@
 - 2.0.0-rc.2:
+    - Fix: OpenMP is no longer a strict requirement for installation.
+    - Added: chacha.native.openmp_accelerated, returns True if CPU kernels are parallelised using OpenMP.
+    - Added: Generic (not hardware-specific) CPU kernels as well as vectorized CPU kernels for ARM CPUs.
     - Added: random.is_state_invalidated to check if a PRNGKey was invalidated.
     - Changed: random.split now can perform nested splits only up to a limit and returns
         an invalidated state if this limit is exceeded. This is to guarantee
