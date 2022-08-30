@@ -108,7 +108,9 @@ void cpu_chacha20_block(void* out_buffer, const void** in_buffers)
     uint32_t num_states = *reinterpret_cast<const uint32_t*>(in_buffers[0]);
     const uint32_t* in_states = reinterpret_cast<const uint32_t*>(in_buffers[1]);
     uint32_t* out_state = reinterpret_cast<uint32_t*>(out_buffer);
+    #ifdef OPENMP_AVAILABLE
     #pragma omp parallel for
+    #endif
     for (uint32_t i = 0; i < num_states; ++i)
     {
         uint32_t offset = ChaChaStateSizeInWords * i;
