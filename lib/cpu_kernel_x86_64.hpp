@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2022 Aalto University
 
 #pragma once
 
@@ -45,6 +45,12 @@ inline __m128i rotate_elements_left(__m128i vec)
     // compile-time known in debug mode (-O0) for some reason, resulting
     // in errors from _mm_shuffle_epi32:
     return _mm_shuffle_epi32_templated<rotation_immediate>(vec);
+}
+
+template <>
+inline __m128i rotate_elements_left<0>(__m128i vec)
+{
+    return vec;
 }
 
 template <uint num_positions>
