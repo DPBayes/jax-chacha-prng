@@ -7,7 +7,16 @@ project(jax-chacha20-prng LANGUAGES CXX)
 option(BUILD_TESTING "Build tests for native kernels" OFF)
 
 set(CMAKE_CXX_STANDARD 14)
-add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-msse>)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-msse>)
+    set(cpu_kernel_files "${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel_x86_64.cpp")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm")
+    # message( FATAL_ERROR "Cannot compile CPU kernels for ARM architectures.")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-mfpu=neon>)
+    set(cpu_kernel_files "${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel_arm.cpp")
+else()
+    message( FATAL_ERROR "Unknown system architecture, cannot compile CPU kernels.")
+endif()
 
 # native kernels require pybind11; however, if it is installed from pip, it has issues
 # in detecting the Python interpreter and libraries during CMake build in a conda env,
@@ -34,8 +43,10 @@ if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/pybind11/CMakeLists.txt")
     message(FATAL_ERROR "The pybind11 repository was not downloaded! Please run manually: git submodule update --init --recursive .")
 endif()
 
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(extern/pybind11)
+message(STATUS ${Python3_EXECUTABLE})
+message(STATUS ${Python3_INCLUDE_DIRS})
 # find_package(pybind11 REQUIRED) # broken; does not use correct Python interpreter/libraries in a conda env
 
 find_package(OpenMP REQUIRED)
@@ -44,14 +55,14 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 
 pybind11_add_module(
     native
-    ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
+    ${cpu_kernel_files}
     ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
 target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
 
 if (BUILD_TESTING)
     add_executable(cpu_kernel_tests
         ${CMAKE_CURRENT_LIST_DIR}/tests/lib/cpu_kernel_tests.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp)
+        ${cpu_kernel_files})
     target_include_directories(cpu_kernel_tests PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/lib/)
     target_link_libraries(cpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)

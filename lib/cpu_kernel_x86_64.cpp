@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2022 Aalto University
 
-#include "cpu_kernel.hpp"
+#include "cpu_kernel_x86_64.hpp"
 
 inline __m128i rotate_left(__m128i values, uint num_bits)
 {
