@@ -41,8 +41,10 @@ VectorizedState VectorizedState::operator+(VectorizedState other) const
     return result;
 }
 
-
-VectorizedState quarterround(VectorizedState state)
+/// This implements what Bernstein calls a quarterround, but does so in a
+/// vectorized manner, i.e., it performs all quarterrounds over the
+/// state matrix's rows concurrently.
+VectorizedState round(VectorizedState state)
 {
     StateRow a = state[0];
     StateRow b = state[1];
@@ -79,11 +81,11 @@ void unpack_diagonals(VectorizedState& out_state, VectorizedState in_state)
     out_state[3] = in_state[3].rotate_elements_right<3>();
 }
 
-VectorizedState half_round(VectorizedState state)
+VectorizedState double_round(VectorizedState state)
 {
-    state = quarterround(state);
+    state = round(state);
     pack_diagonals(state, state);
-    state = quarterround(state);
+    state = round(state);
     unpack_diagonals(state, state);
 
     return state;
@@ -92,10 +94,10 @@ VectorizedState half_round(VectorizedState state)
 void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16])
 {
     VectorizedState vec_in_state(in_state);
-    VectorizedState vec_tmp_state = half_round(vec_in_state);
+    VectorizedState vec_tmp_state = double_round(vec_in_state);
     for (uint i = 0; i < ChaChaDoubleRoundCount - 1; ++i)
     {
-        vec_tmp_state = half_round(vec_tmp_state);
+        vec_tmp_state = double_round(vec_tmp_state);
     }
     vec_tmp_state += vec_in_state;
     vec_tmp_state.unvectorize(out_state);
