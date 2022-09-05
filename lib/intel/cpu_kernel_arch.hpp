@@ -6,37 +6,8 @@
 #include "../defs.hpp"
 #include <stdint.h>
 #include <immintrin.h>
+#include <utility>
 
-typedef __m128i vector_t;
-
-constexpr uint ChaChaWordsPerVector = 4;
-constexpr uint ChaChaStateSizeInVectors = ChaChaStateSizeInWords / ChaChaWordsPerVector;
-
-
-struct VectorizedState
-{
-    __m128i values[ChaChaStateSizeInVectors];
-    VectorizedState() = default;
-    VectorizedState(__m128i a, __m128i b, __m128i c, __m128i d) : values{a, b, c, d} { }
-
-    VectorizedState(const uint32_t state[ChaChaStateSizeInWords]) : values()
-    {
-        for (uint i = 0; i < ChaChaStateSizeInVectors; ++i)
-        {
-            values[i] = _mm_load_si128(&(reinterpret_cast<const __m128i*>(state)[i]));
-        }
-    }
-
-    void unvectorize(uint32_t out_state[ChaChaStateSizeInWords])
-    {
-        for (uint i = 0; i < ChaChaStateSizeInVectors; ++i)
-        {
-            _mm_store_si128(&(reinterpret_cast<__m128i*>(out_state)[i]), values[i]);
-        }
-    }
-
-    __m128i& operator[](uint i) { return values[i]; }
-};
 
 // Wrap _mm_shuffle_epi32 in a template to enforce that rotation_immediate
 // is always known at compile time.
@@ -48,9 +19,9 @@ inline __m128i _mm_shuffle_epi32_templated(__m128i val)
 
 // Rotate elements in a 4-vec
 template <uint num_positions>
-inline __m128i rotate_elements_left(__m128i vec)
+inline __m128i rotate_m128i_left(__m128i vec)
 {
-    constexpr uint8_t rotation_lookup[ChaChaWordsPerVector] = {
+    constexpr uint8_t rotation_lookup[ChaChaStateWordsPerRow] = {
         0b11100100,
         0b00111001,
         0b01001110,
@@ -65,31 +36,57 @@ inline __m128i rotate_elements_left(__m128i vec)
 }
 
 template <>
-inline __m128i rotate_elements_left<0>(__m128i vec)
+inline __m128i rotate_m128i_left<0>(__m128i vec)
 {
     return vec;
 }
 
-template <uint num_positions>
-inline __m128i rotate_elements_right(__m128i vec)
+struct StateRow
 {
-    return rotate_elements_left<(ChaChaWordsPerVector - num_positions) % ChaChaWordsPerVector>(vec);
-}
+private:
+    __m128i values;
 
-inline __m128i rotate_left(__m128i values, uint num_bits)
-{
-    return _mm_xor_si128(
-        _mm_slli_epi32(values, num_bits),
-        _mm_srli_epi32(values, 32 - num_bits)
-    ); // (value << num_bits) ^ (value >> (32 - num_bits));
-}
+public:
+    StateRow() {}
+    StateRow(const uint32_t row_values[ChaChaStateWordsPerRow])
+        : values(_mm_load_si128(reinterpret_cast<const __m128i*>(row_values))) { }
+    StateRow(__m128i vals) : values(std::move(vals)) { }
 
-inline vector_t vadd(vector_t x, vector_t y)
-{
-    return _mm_add_epi32(x, y);
-}
+    inline StateRow& operator+=(const StateRow other)
+    {
+        values = _mm_add_epi32(values, other.values);
+        return *this;
+    }
 
-inline vector_t vxor(vector_t x, vector_t y)
-{
-    return _mm_xor_si128(x, y);
-}
+    inline StateRow& operator^=(const StateRow other)
+    {
+        values = _mm_xor_si128(values, other.values);
+        return *this;
+    }
+
+    inline StateRow& operator<<=(int num_bits)
+    {
+        values = _mm_xor_si128(
+            _mm_slli_epi32(values, num_bits),
+            _mm_srli_epi32(values, 32 - num_bits)
+        ); // (value << num_bits) ^ (value >> (32 - num_bits));
+        return *this;
+    }
+
+    template <uint num_positions>
+    inline StateRow rotate_elements_left() const
+    {
+        return StateRow(rotate_m128i_left<num_positions>(values));
+    }
+
+    template <uint num_positions>
+    inline StateRow rotate_elements_right() const
+    {
+        return rotate_elements_left<(ChaChaStateWordsPerRow - num_positions) % ChaChaStateWordsPerRow>();
+    }
+
+    inline void unvectorize(uint32_t out_buffer[ChaChaStateWordsPerRow]) const
+    {
+        _mm_store_si128(reinterpret_cast<__m128i*>(out_buffer), values);
+    }
+};

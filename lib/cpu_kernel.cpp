@@ -3,41 +3,80 @@
 
 #include "cpu_kernel.hpp"
 
+VectorizedState::VectorizedState(StateRow a, StateRow b, StateRow c, StateRow d) : rows{a, b, c, d} { }
+
+VectorizedState::VectorizedState(const uint32_t state[ChaChaStateSizeInWords]) : rows{
+    StateRow(state + 0 * ChaChaStateSizeInRows),
+    StateRow(state + 1 * ChaChaStateSizeInRows),
+    StateRow(state + 2 * ChaChaStateSizeInRows),
+    StateRow(state + 3 * ChaChaStateSizeInRows)
+} { }
+
+void VectorizedState::unvectorize(uint32_t out_state[ChaChaStateSizeInWords]) const
+{
+    for (uint i = 0; i < ChaChaStateSizeInRows; ++i)
+    {
+        rows[i].unvectorize(out_state + i * ChaChaStateSizeInRows);
+    }
+}
+
+StateRow& VectorizedState::operator[](uint i)
+{
+    return rows[i];
+}
+
+VectorizedState& VectorizedState::operator+=(VectorizedState other)
+{
+    for (uint i = 0; i < ChaChaStateSizeInRows; ++i)
+    {
+        rows[i] += other.rows[i];
+    }
+    return *this;
+}
+
+VectorizedState VectorizedState::operator+(VectorizedState other) const
+{
+    VectorizedState result(*this);
+    result += other;
+    return result;
+}
+
+
 VectorizedState quarterround(VectorizedState state)
 {
-    vector_t a = state[0];
-    vector_t b = state[1];
-    vector_t c = state[2];
-    vector_t d = state[3];
-    a = vadd(a, b); // a += b;
-    d = vxor(d, a); // d ^= a;
-    d = rotate_left(d, 16);
-    c = vadd(c, d); // c += d;
-    b = vxor(b, c); // b ^= c;
-    b = rotate_left(b, 12);
-    a = vadd(a, b); // a += b;
-    d = vxor(d, a); // d ^= a;
-    d = rotate_left(d, 8);
-    c = vadd(c, d); // c += d;
-    b = vxor(b, c); // b ^= c;
-    b = rotate_left(b, 7);
+    StateRow a = state[0];
+    StateRow b = state[1];
+    StateRow c = state[2];
+    StateRow d = state[3];
+    a += b;
+    d ^= a;
+    d <<= 16;
+    c += d;
+    b ^= c;
+    b <<= 12;
+    a += b;
+    d ^= a;
+    d <<= 8;
+    c += d;
+    b ^= c;
+    b <<= 7;
     return VectorizedState(a, b, c, d);
 }
 
 void pack_diagonals(VectorizedState& out_state, VectorizedState in_state)
 {
-    out_state[0] = rotate_elements_left<0>(in_state[0]);
-    out_state[1] = rotate_elements_left<1>(in_state[1]);
-    out_state[2] = rotate_elements_left<2>(in_state[2]);
-    out_state[3] = rotate_elements_left<3>(in_state[3]);
+    out_state[0] = in_state[0].rotate_elements_left<0>();
+    out_state[1] = in_state[1].rotate_elements_left<1>();
+    out_state[2] = in_state[2].rotate_elements_left<2>();
+    out_state[3] = in_state[3].rotate_elements_left<3>();
 }
 
 void unpack_diagonals(VectorizedState& out_state, VectorizedState in_state)
 {
-    out_state[0] = rotate_elements_right<0>(in_state[0]);
-    out_state[1] = rotate_elements_right<1>(in_state[1]);
-    out_state[2] = rotate_elements_right<2>(in_state[2]);
-    out_state[3] = rotate_elements_right<3>(in_state[3]);
+    out_state[0] = in_state[0].rotate_elements_right<0>();
+    out_state[1] = in_state[1].rotate_elements_right<1>();
+    out_state[2] = in_state[2].rotate_elements_right<2>();
+    out_state[3] = in_state[3].rotate_elements_right<3>();
 }
 
 VectorizedState half_round(VectorizedState state)
@@ -50,16 +89,6 @@ VectorizedState half_round(VectorizedState state)
     return state;
 }
 
-VectorizedState add_states(VectorizedState x, VectorizedState y)
-{
-    VectorizedState out;
-    for (uint i = 0; i < 4; ++i)
-    {
-        out[i] = vadd(x[i], y[i]);
-    }
-    return out;
-}
-
 void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16])
 {
     VectorizedState vec_in_state(in_state);
@@ -68,7 +97,7 @@ void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16])
     {
         vec_tmp_state = half_round(vec_tmp_state);
     }
-    vec_tmp_state = add_states(vec_in_state, vec_tmp_state);
+    vec_tmp_state += vec_in_state;
     vec_tmp_state.unvectorize(out_state);
 }
 
