@@ -9,11 +9,13 @@ option(BUILD_TESTING "Build tests for native kernels" OFF)
 set(CMAKE_CXX_STANDARD 14)
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-msse>)
-    set(cpu_kernel_files "${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel_x86_64.cpp")
+    set(cpu_arch_path "${CMAKE_CURRENT_LIST_DIR}/lib/intel/")
+    set(cpu_arch_def "ARCH_INTEL")
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm")
     # message( FATAL_ERROR "Cannot compile CPU kernels for ARM architectures.")
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-mfpu=neon>)
-    set(cpu_kernel_files "${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel_arm.cpp")
+    set(cpu_arch_path "${CMAKE_CURRENT_LIST_DIR}/lib/arm/")
+    set(cpu_arch_def "ARCH_ARM")
 else()
     message( FATAL_ERROR "Unknown system architecture, cannot compile CPU kernels.")
 endif()
@@ -55,17 +57,21 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 
 pybind11_add_module(
     native
-    ${cpu_kernel_files}
+    ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
+target_include_directories(native PRIVATE ${cpu_arch_path})
 target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
+target_compile_definitions(native PRIVATE ${cpu_arch_def})
 
 if (BUILD_TESTING)
     add_executable(cpu_kernel_tests
         ${CMAKE_CURRENT_LIST_DIR}/tests/lib/cpu_kernel_tests.cpp
-        ${cpu_kernel_files})
+        ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp)
     target_include_directories(cpu_kernel_tests PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/lib/)
+        ${CMAKE_CURRENT_LIST_DIR}/lib/
+        ${cpu_arch_path})
     target_link_libraries(cpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(cpu_kernel_tests PRIVATE ${cpu_arch_def})
 endif()
 
 include(CheckLanguage)
@@ -89,6 +95,7 @@ if (CMAKE_CUDA_COMPILER)
         target_include_directories(gpu_kernel_tests PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/lib/)
         target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
+        target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
         set_property(TARGET gpu_kernel_tests PROPERTY CUDA_ARCHITECTURES 35)
     endif()
 else()
