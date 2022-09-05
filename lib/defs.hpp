@@ -8,6 +8,8 @@ typedef unsigned int uint;
 constexpr uint ChaChaDoubleRoundCount = 10;
 constexpr uint ChaChaStateSizeInWords = 16;
 constexpr uint ChaChaStateSizeInBytes = 4 * ChaChaStateSizeInWords;
+constexpr uint ChaChaStateWordsPerRow = 4;
+constexpr uint ChaChaStateSizeInRows = ChaChaStateSizeInWords / ChaChaStateWordsPerRow;
 
 #ifdef CUDA_ENABLED
 // Constants for Cuda kernels

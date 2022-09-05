@@ -5,75 +5,68 @@
 
 #include "../defs.hpp"
 #include <stdint.h>
+#include <utility>
 #include <arm_neon.h>
 
 
-typedef uint32x4_t vector_t;
-
-constexpr uint ChaChaWordsPerVector = 4;
-constexpr uint ChaChaStateSizeInVectors = ChaChaStateSizeInWords / ChaChaWordsPerVector;
-
-struct VectorizedState
-{
-    uint32x4x4_t values;
-
-    VectorizedState() = default;
-    VectorizedState(uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) : values()
-    {
-        values.val[0] = a;
-        values.val[1] = b;
-        values.val[2] = c;
-        values.val[3] = d;
-    }
-
-    VectorizedState(uint32x4x4_t vals) : values(vals) { }
-    VectorizedState(const uint32_t state[ChaChaStateSizeInWords]) : VectorizedState()
-    {
-        for (uint i = 0; i < ChaChaStateSizeInVectors; ++i)
-        {
-            values.val[i] = vld1q_u32(state + i * ChaChaStateSizeInVectors);
-        }
-    }
-
-    void unvectorize(uint32_t out_state[ChaChaStateSizeInWords])
-    {
-        for (uint i = 0; i < ChaChaStateSizeInVectors; ++i)
-        {
-            vst1q_u32(out_state + i * ChaChaStateSizeInVectors, values.val[i]);
-        }
-    }
-
-    uint32x4_t& operator[](uint i) { return values.val[i]; }
-};
-
-// Rotate elements in a 4-vec
 template <uint num_positions>
-inline uint32x4_t rotate_elements_left(uint32x4_t vec)
+inline uint32x4_t rotate_vector_left(uint32x4_t vec)
 {
     return vextq_u32(vec, vec, num_positions);
 }
 
-template <uint num_positions>
-inline uint32x4_t rotate_elements_right(uint32x4_t vec)
+template <>
+inline uint32x4_t rotate_vector_left<0>(uint32x4_t vec)
 {
-    return rotate_elements_left<(ChaChaWordsPerVector - num_positions) % ChaChaWordsPerVector>(vec);
+    return vec;
 }
 
-
-inline uint32x4_t rotate_left(uint32x4_t values, uint num_bits)
+struct StateRow
 {
-    return vorrq_u32(
-        vshlq_n_u32(values, num_bits),
-        vshrq_n_u32(values, 32 - num_bits)
-    );
-}
+private:
+    uint32x4_t values;
 
-inline uint32x4_t vadd(uint32x4_t x, uint32x4_t y)
-{
-    return vaddq_u32(x, y);
-}
+public:
+    StateRow() { }
+    StateRow(uint32x4_t vec) : values(std::move(vec)) { }
+    StateRow(const uint32_t row_values[ChaChaStateWordsPerRow]) : values(vld1q_u32(row_values)) { }
 
-inline uint32x4_t vxor(uint32x4_t x, uint32x4_t y)
-{
-    return veorq_u32(x, y);
-}
+    inline StateRow& operator+=(const StateRow other)
+    {
+        values = vaddq_u32(values, other.values);
+        return *this;
+    }
+
+    inline StateRow& operator^=(const StateRow other)
+    {
+        values = veorq_u32(values, other.values);
+        return *this;
+    }
+
+    inline StateRow& operator<<=(int num_bits)
+    {
+        values = vorrq_u32(
+            vshlq_n_u32(values, num_bits),
+            vshrq_n_u32(values, 32 - num_bits)
+        ); // (value << num_bits) ^ (value >> (32 - num_bits));
+        return *this;
+    }
+
+    template <uint num_positions>
+    inline StateRow rotate_elements_left() const
+    {
+        return StateRow(rotate_vector_left<num_positions>(values));
+    }
+
+    template <uint num_positions>
+    inline StateRow rotate_elements_right() const
+    {
+        return rotate_elements_left<(ChaChaStateWordsPerRow - num_positions) % ChaChaStateWordsPerRow>();
+    }
+
+    inline void unvectorize(uint32_t out_buffer[ChaChaStateWordsPerRow]) const
+    {
+        vst1q_u32(out_buffer, values);
+    }
+
+};
