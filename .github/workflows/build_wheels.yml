@@ -38,7 +38,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install gcc-${{ matrix.cuda-setup[2] }} g++-${{ matrix.cuda-setup[2] }}
         sudo ln -sf /usr/bin/gcc-${{ matrix.cuda-setup[2] }} /usr/bin/gcc
-        sudo ln -sf /usr/bin/g++-${{ matrix.cuda-setup[2] }} /usr/bin/gcc
+        sudo ln -sf /usr/bin/g++-${{ matrix.cuda-setup[2] }} /usr/bin/g++
     - name: Set up CUDA-Toolkit ${{ matrix.cuda-setup[0] }}
       run: |
         wget -q -O installer.run ${{ matrix.cuda-setup[1] }}

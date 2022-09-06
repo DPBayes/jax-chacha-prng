@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2022 Aalto University
+
+name: Native code tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master, "*stable" ]
+
+jobs:
+  test_native_intel:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        force_generic: ['On', 'Off']
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: Install environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc g++ cmake python3 python3-dev
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake -DBUILD_TESTING=On -DFORCE_GENERIC=${{ matrix.force_generic }} -DCMAKE_BUILD_TYPE=Release ..
+        make
+    - name: Run CPU kernel tests
+      run: |
+        cd build
+        ./cpu_kernel_tests
+
+  test_native_arm_cross:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        force_generic: ['On', 'Off']
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: Build and run in container
+      uses: addnab/docker-run-action@v3
+      with:
+        image: ubuntu:jammy
+        options: -v ${{ github.workspace }}:/work/src -e FORCE_GENERIC=${{ matrix.force_generic }}
+        run: |
+          sed -i 's/http/[arch=i386,amd64] http/g' /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted" >> /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted" >> /etc/apt/sources.list
+          dpkg --add-architecture arm64
+          apt-get update
+          apt-get upgrade -y
+          apt-get install -y qemu binfmt-support qemu-user-static libc6:arm64 \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross cmake python3 python3-dev libpython3-dev:arm64
+          mkdir /work/build
+          cd /work/build
+          cmake \
+            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
+            -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu/ \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=BOTH \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="/usr/bin/qemu-aarch64-static;-L;/usr/aarch64-linux-gnu/" \
+            -DBUILD_TESTING=On \
+            -DFORCE_GENERIC=${{ matrix.force_generic }} \
+            -DCMAKE_BUILD_TYPE=Release ../src
+          make
+          /usr/bin/qemu-aarch64-static -L /usr/aarch64-linux-gnu/ ./cpu_kernel_tests
