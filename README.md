@@ -78,7 +78,8 @@ Installation will compile CUDA kernels if the CUDA library is present on the sys
 otherwise only CPU kernels will be built. To check whether CUDA kernels were
 built and installed, you can check the return value of `chacha.native.cuda_supported()`.
 
-Pre-built binary wheels are also available alongside the releases on GitHub.
+Pre-built binary wheels are also available alongside the releases on GitHub, however,
+these are currently only available for the x86_64 platform.
 
 ### Note about JAX versions
 
@@ -95,7 +96,7 @@ JAX version known to be compatible with JAX-ChaCha-PRNG:
 pip install .[compatible-jax]
 ```
 
-JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.2.12 - 0.2.27 .
+JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.2.12 - 0.3.17 .
 We regularly check the compatible version range, but do not expect new versions of JAX to be immediately tested.
 
 ## Versioning
