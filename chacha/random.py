@@ -153,11 +153,10 @@ def _uniform(
         dtype: type,
         minval: jnp.float_,
         maxval: jnp.float_,
-        return_next_key: bool = False
+        return_next_key: bool
     ) -> jnp.ndarray:  # noqa:E121,E125
     _check_shape("uniform", shape)
     if not jnp.issubdtype(dtype, np.floating):
-        print("encountered exc in _uniform")
         raise TypeError("uniform only accepts floating point dtypes.")
 
     minval = jax.lax.convert_element_type(minval, dtype)

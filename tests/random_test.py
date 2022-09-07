@@ -351,7 +351,7 @@ class ChaChaRNGTests(unittest.TestCase):
         rng_key = PRNGKey(0)
 
         with self.assertRaises(TypeError):
-            _uniform(rng_key, (), jnp.uint8, 0., 1.)
+            _uniform(rng_key, (), jnp.uint8, 0., 1., False)
         with self.assertRaises(TypeError):
             uniform(rng_key, (), jnp.uint32)
 
