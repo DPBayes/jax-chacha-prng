@@ -23,11 +23,11 @@ jobs:
           [11.1.1, "https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run", 9]
         ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Pip
@@ -44,13 +44,13 @@ jobs:
         wget -q -O installer.run ${{ matrix.cuda-setup[1] }}
         /usr/bin/sudo sh ./installer.run --toolkit --silent
     - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v1.9
+      uses: jwlawson/actions-setup-cmake@v1
     - name: Create Wheel
       run: |
         export JAX_CHACHA_PRNG_BUILD=cuda$(echo ${{ matrix.cuda-setup[0] }} | cut -d. -f1,2 | sed 's/\.//')
         export PATH=/usr/local/cuda/bin:$PATH
         python setup.py bdist_wheel
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: wheel_${{ matrix.python-version }}_cuda${{ matrix.cuda-setup[0] }}
         path: dist/jax_chacha_prng*.whl
@@ -62,23 +62,23 @@ jobs:
       matrix:
         python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Pip
       run: |
         pip install wheel
     - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v1.9
+      uses: jwlawson/actions-setup-cmake@v1
     - name: Create Wheel
       run: |
         export PATH=/usr/local/cuda/bin:$PATH
         python setup.py bdist_wheel
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: wheel_${{ matrix.python-version }}_cpu
         path: dist/jax_chacha_prng*.whl
@@ -93,8 +93,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
         with:
           path: wheels
       - name: Publish Pre-Release
