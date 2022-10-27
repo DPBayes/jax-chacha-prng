@@ -48,11 +48,10 @@ try:
 except (AttributeError, ImportError):  # pragma: no cover
     # post jax v.2.20 location
     try:
-        _UINT_DTYPES = jax._src.random.UINT_DTYPES  # type: ignore
-    except (AttributeError, ImportError):  # pragma: no cover
+        from jax._src.random import UINT_DTYPES as _UINT_DTYPES  # type: ignore
+    except (AttributeError, ImportError) as e:  # pragma: no cover
         raise ImportError("Cannot import UINT_DTYPES enum. "
                           "You are probably using an incompatible version of jax.")
-
 
 RNGState = cc.ChaChaState
 

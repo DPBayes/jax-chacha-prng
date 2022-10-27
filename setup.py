@@ -70,7 +70,7 @@ spec.loader.exec_module(version_module)
 
 _jax_version_lower_constraint = ' >= 0.2.12'
 _jax_version_optimistic_upper_constraint = ', <= 2.0.0'
-_jax_version_upper_constraint = ', <= 0.3.17'
+_jax_version_upper_constraint = ', <= 0.3.23'
 
 _version = version_module.VERSION
 if 'JAX_CHACHA_PRNG_BUILD' in os.environ:
@@ -93,7 +93,10 @@ setuptools.setup(
         f"jax{_jax_version_lower_constraint}{_jax_version_optimistic_upper_constraint}"
     ],
     extras_require={
-        "tests": [f"jax[minimum-jaxlib]"],
+        "tests": [
+            f"jax[minimum-jaxlib]",
+            "pytest"
+        ],
         "compatible-jax": [f"jax{_jax_version_lower_constraint}{_jax_version_upper_constraint}"]
     },
     classifiers=[

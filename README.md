@@ -96,7 +96,7 @@ JAX version known to be compatible with JAX-ChaCha-PRNG:
 pip install .[compatible-jax]
 ```
 
-JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.2.12 - 0.3.17 .
+JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.2.12 - 0.3.23 .
 We regularly check the compatible version range, but do not expect new versions of JAX to be immediately tested.
 
 ## Versioning
