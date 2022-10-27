@@ -122,19 +122,19 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int])\
 
 @partial(jax.jit, static_argnums=(1,))
 def _split(rng_key: RNGState, num: int) -> RNGState:
-    bitlength_num = num.bit_length()
-    if bitlength_num > 32:
+    shiftlength = (num - 1).bit_length()
+    if shiftlength >= 32:
         raise ValueError("Splits into more than 2^32 new keys are currently not supported.")
 
     old_nonce = cc.get_nonce(rng_key)
 
     old_nonce = jnp.concatenate((old_nonce, jnp.zeros((1,), rng_key.dtype)))
     assert old_nonce.shape == (defs.ChaChaNonceSizeInWords + 1,)
-    new_nonce_base = ((old_nonce[:defs.ChaChaNonceSizeInWords] << bitlength_num)
-                      ^ (old_nonce[1:] >> (32 - bitlength_num)))
+    new_nonce_base = ((old_nonce[:defs.ChaChaNonceSizeInWords] << shiftlength)
+                      ^ (old_nonce[1:] >> (32 - shiftlength)))
     assert new_nonce_base.shape == (defs.ChaChaNonceSizeInWords,)
 
-    split_nesting_exceeded = (old_nonce[0] >= (1 << (32 - bitlength_num))) | jnp.all(old_nonce == 0)
+    split_nesting_exceeded = (old_nonce[0] >= (1 << (32 - shiftlength))) | jnp.all(old_nonce == 0)
     state_previuosly_used = cc.get_counter(rng_key) > 0
 
     def make_rng_key(i: int) -> RNGState:
