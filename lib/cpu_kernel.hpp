@@ -22,12 +22,12 @@ inline StateRow operator^(StateRow left, StateRow right)
     return result;
 }
 
-inline StateRow operator<<(StateRow row, uint num_bits)
-{
-    StateRow result(row);
-    result <<= num_bits;
-    return result;
-}
+// inline StateRow operator<<(StateRow row, uint num_bits)
+// {
+//     StateRow result(row);
+//     result <<= num_bits;
+//     return result;
+// }
 
 template <>
 inline StateRow StateRow::rotate_elements_left<0>() const

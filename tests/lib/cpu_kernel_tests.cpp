@@ -115,7 +115,7 @@ int test_rotate_left()
     std::cout << "test_rotate_left(x, 1): ";
     std::array<uint32_t, 4> expected = { 3, 0xffffffff, 0x1e1e1e1e, 0x99999999 };
 
-    auto vec_result = vec_vals << 1;
+    auto vec_result = vec_vals.rotate_values_left<1>(); // << 1;
     auto result = to_array(vec_result);
 
     num_fails += test_assert(result == expected);
@@ -123,7 +123,7 @@ int test_rotate_left()
     std::cout << "test_rotate_left(x, 15): ";
     expected = { 0x0000c000, 0xffffffff, 0x87878787, 0x66666666 };
 
-    vec_result = vec_vals << 15;
+    vec_result = vec_vals.rotate_values_left<15>(); // << 15;
     result = to_array(vec_result);
 
     num_fails += test_assert(result == expected);
@@ -131,7 +131,7 @@ int test_rotate_left()
     std::cout << "test_rotate_left(x, 16): ";
     expected = { 0x00018000, 0xffffffff, 0x0f0f0f0f, 0xcccccccc };
 
-    vec_result = vec_vals << 16;
+    vec_result = vec_vals.rotate_values_left<16>(); // << 16;
     result = to_array(vec_result);
 
     num_fails += test_assert(result == expected);
@@ -139,7 +139,7 @@ int test_rotate_left()
     std::cout << "test_rotate_left(x, 31): ";
     expected = { 0xc0000000, 0xffffffff, 0x87878787, 0x66666666 };
 
-    vec_result = vec_vals << 31;
+    vec_result = vec_vals.rotate_values_left<31>(); // << 31;
     result = to_array(vec_result);
 
     num_fails += test_assert(result == expected);

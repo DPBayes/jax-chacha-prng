@@ -64,13 +64,15 @@ public:
         return *this;
     }
 
-    inline StateRow& operator<<=(int num_bits)
+    template <uint num_bits>
+    inline StateRow rotate_values_left() const
     {
-        values = _mm_xor_si128(
-            _mm_slli_epi32(values, num_bits),
-            _mm_srli_epi32(values, 32 - num_bits)
-        ); // (value << num_bits) ^ (value >> (32 - num_bits));
-        return *this;
+        return StateRow(
+            _mm_xor_si128(
+                _mm_slli_epi32(values, num_bits),
+                _mm_srli_epi32(values, 32 - num_bits)
+            ) // (value << num_bits) ^ (value >> (32 - num_bits));
+        );
     }
 
     template <uint num_positions>

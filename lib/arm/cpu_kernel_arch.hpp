@@ -43,13 +43,15 @@ public:
         return *this;
     }
 
-    inline StateRow& operator<<=(int num_bits)
+    template <uint num_bits>
+    inline StateRow rotate_values_left() const
     {
-        values = vorrq_u32(
-            vshlq_n_u32(values, num_bits),
-            vshrq_n_u32(values, 32 - num_bits)
-        ); // (value << num_bits) ^ (value >> (32 - num_bits));
-        return *this;
+        return StateRow(
+            vorrq_u32(
+                vshlq_n_u32(values, num_bits),
+                vshrq_n_u32(values, 32 - num_bits)
+            ) // (values << num_bits) ^ (values >> (32 - num_bits));
+        );
     }
 
     template <uint num_positions>
