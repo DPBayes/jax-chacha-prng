@@ -35,6 +35,18 @@ struct StateRow
         return *this;
     }
 
+    template <uint num_bits>
+    inline StateRow rotate_values_left() const
+    {
+        StateRow result;
+        for (uint i = 0; i < ChaChaStateWordsPerRow; ++i)
+        {
+            uint32_t val = values[i];
+            result.values[i] = (val << num_bits) | (val >> (32 - num_bits));
+        }
+        return result;
+    }
+
     inline StateRow& operator<<=(int num_bits)
     {
         for (uint i = 0; i < ChaChaStateWordsPerRow; ++i)

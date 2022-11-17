@@ -52,16 +52,16 @@ VectorizedState round(VectorizedState state)
     StateRow d = state[3];
     a += b;
     d ^= a;
-    d <<= 16;
+    d = d.rotate_values_left<16>(); // d <<= 16;
     c += d;
     b ^= c;
-    b <<= 12;
+    b = b.rotate_values_left<12>(); // b <<= 12;
     a += b;
     d ^= a;
-    d <<= 8;
+    d = d.rotate_values_left<8>(); // d <<= 8;
     c += d;
     b ^= c;
-    b <<= 7;
+    b = b.rotate_values_left<7>(); // b <<= 7;
     return VectorizedState(a, b, c, d);
 }
 
