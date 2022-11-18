@@ -1,0 +1,6 @@
+recursive-include extern/pybind11/include/pybind11 *.h
+include extern/pybind11/tools/*.cmake*
+include extern/pybind11/CMakeLists.txt
+include LICENSES/*.txt
+include CMakeLists.txt
+include cmake_config/*
