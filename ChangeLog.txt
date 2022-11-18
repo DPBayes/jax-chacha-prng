@@ -1,3 +1,6 @@
+- HEAD:
+    - Added: support for jax up to v0.3.25
+    - Added: support for Python v3.11
 - 2.0.0-rc.3:
     - Fix: OpenMP is no longer a strict requirement for installation.
     - Added: chacha.native.openmp_accelerated, returns True if CPU kernels are parallelised using OpenMP.
