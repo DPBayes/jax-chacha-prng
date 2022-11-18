@@ -3,6 +3,7 @@
     - Added: chacha.native.openmp_accelerated, returns True if CPU kernels are parallelised using OpenMP.
     - Added: Generic (not hardware-specific) CPU kernels as well as vectorized CPU kernels for ARM CPUs.
     - Added: support for jax up to v0.3.25
+    - Added: support for Python v3.11
 - 1.2.1:
     - Added: support for jax up to v0.3.23.
 - 1.1.1:
