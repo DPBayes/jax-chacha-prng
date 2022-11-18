@@ -50,11 +50,16 @@ extensions = [
     Extension(
         "chacha.native",
         [
-            "lib/cpu_kernel.cpp",
-            "lib/gpu_kernel.cpp.cu",
-            "lib/python_bindings.cpp"
+            "lib/arm/cpu_kernel_arch.hpp",
+            "lib/generic/cpu_kernel_arch.hpp",
+            "lib/intel/cpu_kernel_arch.hpp",
             "lib/chacha_kernels.hpp",
-            "lib/defs.hpp"
+            "lib/cpu_kernel.cpp",
+            "lib/cpu_kernel.hpp",
+            "lib/defs.hpp",
+            "lib/gpu_kernel.cpp.cu",
+            "lib/gpu_kernel.hpp",
+            "lib/python_bindings.cpp",
         ],
     ),
 ]
