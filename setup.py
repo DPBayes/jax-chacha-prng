@@ -79,7 +79,7 @@ if 'JAX_CHACHA_PRNG_BUILD' in os.environ:
 setuptools.setup(
     name='jax-chacha-prng',
     version=_version,
-    author="Lukas Prediger for Aalto University",
+    author="Lukas Prediger, Aalto University",
     author_email="lukas.m.prediger@aalto.fi",
     description="A pseudo-random number generator for JAX based on the 20 round ChaCha cipher.",
     long_description=long_description,
@@ -102,8 +102,9 @@ setuptools.setup(
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
-        "Operating System :: OS Independent",
-        "Development Status :: 3 - Alpha",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Developers"
     ],
