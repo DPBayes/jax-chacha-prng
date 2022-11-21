@@ -98,7 +98,7 @@ if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/pybind11/CMakeLists.txt")
     message(FATAL_ERROR "The pybind11 repository was not downloaded! Please run manually: git submodule update --init --recursive .")
 endif()
 
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
 add_subdirectory(extern/pybind11)
 # find_package(pybind11 REQUIRED) # broken; does not use correct Python interpreter/libraries in a conda env
 
