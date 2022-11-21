@@ -6,6 +6,7 @@ from setuptools import Extension
 from setuptools.command.build_ext import build_ext
 import os
 import subprocess
+import re
 
 class CMakeBuildExt(build_ext):
     # adapted from https://github.com/dfm/extending-jax
@@ -15,11 +16,15 @@ class CMakeBuildExt(build_ext):
             os.path.dirname(self.get_ext_fullpath("dummy"))
         )
         os.makedirs(install_dir, exist_ok=True)
+
+        osx_architectures = ";".join(re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", "")))
+
         cmake_args = [
             "-DCMAKE_INSTALL_PREFIX={}".format(install_dir),
             "-DCMAKE_BUILD_TYPE={}".format(
                 "Debug" if self.debug else "Release"
-            )
+            ),
+            "-DCMAKE_OSX_ARCHITECTURES={}".format(osx_architectures)
         ]
 
         os.makedirs(self.build_temp, exist_ok=True)
