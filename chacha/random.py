@@ -30,16 +30,7 @@ import chacha.cipher as cc
 from chacha import defs
 
 # importing canonicalize_shape function
-try:
-    # pre jax v0.2.14 location
-    _canonicalize_shape = jax.abstract_arrays.canonicalize_shape  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
-    # post jax v0.2.14 location
-    try:
-        _canonicalize_shape = jax.core.canonicalize_shape  # type: ignore
-    except (AttributeError, ImportError):  # pragma: no cover
-        raise ImportError("Cannot import canonicalize_shape routine. "
-                          "You are probably using an incompatible version of jax.")
+_canonicalize_shape = jax.core.canonicalize_shape  # type: ignore
 
 # importing _UINT_DTYPES
 try:
