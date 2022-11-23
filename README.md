@@ -57,16 +57,28 @@ State construction and use:
 
 ## Installing
 
-For the latest stable version install from the `v1-stable` branch via `pip`:
+For the latest stable version install via pip
+```
+pip install jax-chacha-prng
+```
+
+Note that the binaries available from pip are currently compiled without CUDA support.
+
+You can instruct pip to instead compile the package from sources via
+```
+pip install --no-binary :all: jax-chacha-prng
+```
+
+or by installing it directly from the `v1-stable` branch:
 ```
 pip install git+https://github.com/DPBayes/jax-chacha-prng@v1-stable#egg=jax-chacha-prng
 ```
 
-Installation will compile CUDA kernels if the CUDA library is present on the system,
+This will compile CUDA kernels if the CUDA library is present on the system,
 otherwise only CPU kernels will be built. To check whether CUDA kernels were
 built and installed, you can check the return value of `chacha.native.cuda_supported()`.
 
-Pre-built binary wheels are also available alongside the releases on GitHub.
+Pre-built binary wheels including CUDA are available via the [Github Releases](https://github.com/DPBayes/jax-chacha-prng/releases) page of the project, but may not run on all systems.
 
 ### Note about JAX versions
 
