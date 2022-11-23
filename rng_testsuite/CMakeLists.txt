@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2021 Aalto University
 
-cmake_minimum_required(VERSION 3.12.0)
+cmake_minimum_required(VERSION 3.18.0)
 project(rng_tests VERSION 0.1.0 LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 find_package(TestU01 REQUIRED)
 
-find_package(Python3 REQUIRED COMPONENTS Development)
+find_package(Python3 COMPONENTS Interpreter Development.Embed REQUIRED)
 message(STATUS ${TestU01_INCLUDE_DIRS})
 message(STATUS ${TestU01_LIBRARIES})
 message(STATUS ${Python3_LIBRARIES})
 message(STATUS ${Python3_INCLUDE_DIRS})
+message(STATUS ${Python3_EXECUTABLE})
 
 add_library(libcchacha chacha_reference/chacha.c chacha_reference/chacharng.cpp chacha_reference/chacharng.hpp)
 target_include_directories(libcchacha PUBLIC ${TestU01_INCLUDE_DIRS})
