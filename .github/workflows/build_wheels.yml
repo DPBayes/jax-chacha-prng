@@ -27,7 +27,7 @@ jobs:
       with:
         submodules: true
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Pip
@@ -50,14 +50,14 @@ jobs:
         export JAX_CHACHA_PRNG_BUILD=cuda$(echo ${{ matrix.cuda-setup[0] }} | cut -d. -f1,2 | sed 's/\.//')
         export PATH=/usr/local/cuda/bin:$PATH
         python setup.py bdist_wheel
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: wheel_${{ matrix.python-version }}_cuda${{ matrix.cuda-setup[0] }}
         path: dist/jax_chacha_prng*.whl
         if-no-files-found: error
 
   build-cpu-wheels:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11']
@@ -66,7 +66,7 @@ jobs:
       with:
         submodules: true
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Pip
@@ -78,7 +78,7 @@ jobs:
       run: |
         export PATH=/usr/local/cuda/bin:$PATH
         python setup.py bdist_wheel
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: wheel_${{ matrix.python-version }}_cpu
         path: dist/jax_chacha_prng*.whl
@@ -86,7 +86,7 @@ jobs:
 
   create_release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs:
       - build-cuda-wheels
       - build-cpu-wheels
@@ -94,7 +94,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           path: wheels
       - name: Publish Pre-Release
