@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2022 Aalto University
+# SPDX-FileCopyrightText: © 2023 Aalto University
 
 name: Build_pypi_wheels
 
 on:
   push:
-    branches: [ "*stable", "wheel_building" ]
+    branches: [ "*stable", "wheel_building", "cuda_pypi_build" ]
+    tags: [ "*rc*"]
 
 jobs:
   build_pypi_binary_wheels:
@@ -59,6 +60,41 @@ jobs:
           path: ./wheelhouse/*.whl
           name: dist
 
+  build_pypi_cuda_wheels:
+    name: Build CUDA 11 wheels for manylinux x64
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - uses: actions/setup-python@v4
+        name: Install Python
+        with:
+          python-version: '3.9'
+
+      - name: Set up QEMU
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: all
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.11.2
+        env:
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_BUILD: "*-manylinux*"
+          CIBW_BUILD_VERBOSITY: 2
+          CIBW_BEFORE_ALL_LINUX: >
+            curl -o installer.run -s https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run &&
+            /bin/sh ./installer.run --toolkit --silent
+          CIBW_ENVIRONMENT_LINUX: PATH=/usr/local/cuda/bin:$PATH
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./wheelhouse/*.whl
+          name: dist-cuda
+
   build_pypi_source_dist:
     name: Build source distribution package for PyPI
     runs-on: ubuntu-latest
@@ -86,6 +122,7 @@ jobs:
   upload_pypi_wheels:
     name: Upload wheels to PyPI
     runs-on: ubuntu-latest
+    if: contains(github.ref, 'stable')
     needs:
       - build_pypi_binary_wheels
       - build_pypi_source_dist
@@ -95,8 +132,7 @@ jobs:
           name: dist
           path: ./dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
-        name: Upload to PyPI (test)
-        if: contains(github.ref, 'stable')
+        name: Upload to PyPI
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip_existing: true
