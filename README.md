@@ -62,9 +62,10 @@ For the latest stable version install via pip
 pip install jax-chacha-prng
 ```
 
-Note that the binaries available from pip are currently compiled without CUDA support.
+Binaries for glibc based 64-bit linux systems (manylinux wheels) are compiled with CPU and CUDA support (you will have to [install JAX with CUDA support](https://github.com/google/jax#pip-installation-gpu-cuda) to benefit from this).
+Binaries for all other systems are compiled for CPU execution only. This is because JAX does not have CUDA libraries for these systems either.
 
-You can instruct pip to instead compile the package from sources via
+However, you can instruct pip to instead compile the package from sources via
 ```
 pip install --no-binary :all: jax-chacha-prng
 ```
@@ -77,8 +78,6 @@ pip install git+https://github.com/DPBayes/jax-chacha-prng@v1-stable#egg=jax-cha
 This will compile CUDA kernels if the CUDA library is present on the system,
 otherwise only CPU kernels will be built. To check whether CUDA kernels were
 built and installed, you can check the return value of `chacha.native.cuda_supported()`.
-
-Pre-built binary wheels including CUDA are available via the [Github Releases](https://github.com/DPBayes/jax-chacha-prng/releases) page of the project, but may not run on all systems.
 
 ### Note about JAX versions
 
