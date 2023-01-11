@@ -140,22 +140,22 @@ check_language(CUDA)
 
 if (CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
-    find_package(CUDAToolkit)
     target_compile_definitions(native PRIVATE CUDA_ENABLED)
     target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu)
     # compile for lowest compute capability supported by XLA: 3.5
     # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
     set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
-    target_include_directories(native PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp PROPERTIES LANGUAGE CUDA)
 
     if (BUILD_TESTING)
         add_executable(gpu_kernel_tests
             ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.cu
             ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu)
+        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.cu PROPERTIES LANGUAGE CUDA)
         target_compile_definitions(gpu_kernel_tests PRIVATE CUDA_ENABLED)
         target_include_directories(gpu_kernel_tests PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/lib/)
-        target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
         target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
         set_property(TARGET gpu_kernel_tests PROPERTY CUDA_ARCHITECTURES 35)
         if (OpenMP_CXX_FOUND)
