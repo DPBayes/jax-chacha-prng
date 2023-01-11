@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2022 Aalto University
+# SPDX-FileCopyrightText: © 2023 Aalto University
 
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 project(jax-chacha20-prng LANGUAGES CXX)
 
 option(BUILD_TESTING "Build tests for native kernels" OFF)
 option(FORCE_GENERIC "Build without CPU architecture optimized instructions" OFF)
 option(DISABLE_OPENMP "Do not use OpenMP parallelisation for CPU kernels" OFF)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(cpu_arch_path "${CMAKE_CURRENT_LIST_DIR}/lib/generic/")
 set(cpu_arch_def "ARCH_GENERIC")
 set(SSE_ENABLED "No")
@@ -166,7 +166,36 @@ if (CMAKE_CUDA_COMPILER)
         endif()
     endif()
 else()
-    message(WARNING "CUDA not found - building for CPU only!")
+    message(WARNING "CUDA not found - not building CUDA GPU kernels!")
+endif()
+
+check_language(HIP)
+
+if (CMAKE_HIP_COMPILER)
+    find_package(HIP)
+    enable_language(HIP)
+    target_compile_definitions(native PRIVATE HIP_ENABLED)
+    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip PROPERTIES LANGUAGE HIP)
+    set_property(TARGET native PROPERTY HIP_ARCHITECTURES gfx900)
+
+    if (BUILD_TESTING)
+        add_executable(gpu_kernel_tests
+            ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.hip
+            ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip)
+        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.hip PROPERTIES LANGUAGE HIP)
+        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip PROPERTIES LANGUAGE HIP)
+        target_compile_definitions(gpu_kernel_tests PRIVATE HIP_ENABLED)
+        target_include_directories(gpu_kernel_tests PRIVATE
+            ${CMAKE_CURRENT_LIST_DIR}/lib/)
+        target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
+        set_property(TARGET gpu_kernel_tests PROPERTY HIP_ARCHITECTURES gfx900)
+        if (OpenMP_CXX_FOUND)
+            target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
+        endif()
+    endif()
+else()
+    message(WARNING "HIP not found - not building AMD GPU kernels!")
 endif()
 
 install(TARGETS native DESTINATION chacha)
