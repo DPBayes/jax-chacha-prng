@@ -150,8 +150,6 @@ if (CMAKE_CUDA_COMPILER)
     # compile for lowest compute capability supported by XLA: 3.5
     # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
     set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
-    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu PROPERTIES LANGUAGE CUDA)
-    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp PROPERTIES LANGUAGE CUDA)
 
     if (BUILD_TESTING)
         add_executable(gpu_kernel_tests
