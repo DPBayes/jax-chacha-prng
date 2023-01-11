@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2023 Aalto University
 
-#include <cuda_runtime.h>
+#include "hip/hip_runtime.h"
 #include <cstdlib>
 #include <stdexcept>
 
@@ -65,7 +65,7 @@ uint32_vec4 double_round_with_shuffle(uint32_vec4 state)
     // shuffle so that thread holds diagonal
     for (int i = 1; i < WordsPerThread; ++i)
     {
-        state[i] = __shfl_sync((uint)-1,
+        state[i] = __shfl(
             state[i], /*srcLane=*/state_thread_id + i, /*width=*/ThreadsPerState
         );
     }
@@ -76,7 +76,7 @@ uint32_vec4 double_round_with_shuffle(uint32_vec4 state)
     // shuffle back to columns
     for (int i = 1; i < WordsPerThread; ++i)
     {
-        state[i] = __shfl_sync((uint)-1,
+        state[i] = __shfl(
             state[i], /*srcLane=*/state_thread_id - i, /*width=*/ThreadsPerState
         );
     }

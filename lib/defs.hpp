@@ -11,7 +11,7 @@ constexpr uint ChaChaStateSizeInBytes = 4 * ChaChaStateSizeInWords;
 constexpr uint ChaChaStateWordsPerRow = 4;
 constexpr uint ChaChaStateSizeInRows = ChaChaStateSizeInWords / ChaChaStateWordsPerRow;
 
-#ifdef CUDA_ENABLED
+#if (CUDA_ENABLED || HIP_ENABLED)
 // Constants for Cuda kernels
 // For hardware constraints, check
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications__technical-specifications-per-compute-capability
