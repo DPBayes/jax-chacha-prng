@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2023 Aalto University
 
 #pragma once
 
 #ifdef CUDA_ENABLED
     #include <cuda_runtime.h>
     typedef cudaStream_t gpuStream_t;
+
+    #define shfl(x, y, z) __shfl_sync((uint)(-1), x, y, z)
+
 #elif HIP_ENABLED
     #include <hip/hip_runtime.h>
     typedef hipStream_t gpuStream_t;
+
+    #define shfl __shfl
 #endif
 #include <stdint.h>
 

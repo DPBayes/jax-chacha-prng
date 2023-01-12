@@ -7,6 +7,7 @@ project(jax-chacha20-prng LANGUAGES CXX)
 option(BUILD_TESTING "Build tests for native kernels" OFF)
 option(FORCE_GENERIC "Build without CPU architecture optimized instructions" OFF)
 option(DISABLE_OPENMP "Do not use OpenMP parallelisation for CPU kernels" OFF)
+set(HIP_ARCHITECTURES "gfx900 gfx906 gfx908 gfx90a gfx940 gfx1010 gfx1030 gfx1100" CACHE STRING "A list of AMD GPU architectures to built kernels for")
 
 set(CMAKE_CXX_STANDARD 17)
 set(cpu_arch_path "${CMAKE_CURRENT_LIST_DIR}/lib/generic/")
@@ -146,16 +147,17 @@ check_language(CUDA)
 if (CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     target_compile_definitions(native PRIVATE CUDA_ENABLED)
-    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu)
+    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp PROPERTIES LANGUAGE CUDA)
     # compile for lowest compute capability supported by XLA: 3.5
     # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
     set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
 
     if (BUILD_TESTING)
         add_executable(gpu_kernel_tests
-            ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.cu
-            ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.cu)
-        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.cu PROPERTIES LANGUAGE CUDA)
+            ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.gpu.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
+        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.gpu.cpp PROPERTIES LANGUAGE CUDA)
         target_compile_definitions(gpu_kernel_tests PRIVATE CUDA_ENABLED)
         target_include_directories(gpu_kernel_tests PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/lib/)
@@ -170,26 +172,27 @@ else()
 endif()
 
 check_language(HIP)
+separate_arguments(HIP_ARCHITECTURE_LIST UNIX_COMMAND ${HIP_ARCHITECTURES})
 
 if (CMAKE_HIP_COMPILER)
-    find_package(HIP)
     enable_language(HIP)
+
     target_compile_definitions(native PRIVATE HIP_ENABLED)
-    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip)
-    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip PROPERTIES LANGUAGE HIP)
-    set_property(TARGET native PROPERTY HIP_ARCHITECTURES gfx900)
+    target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp PROPERTIES LANGUAGE HIP)
+    set_property(TARGET native PROPERTY HIP_ARCHITECTURES ${HIP_ARCHITECTURE_LIST})
+
 
     if (BUILD_TESTING)
         add_executable(gpu_kernel_tests
-            ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.hip
-            ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip)
-        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.cpp.hip PROPERTIES LANGUAGE HIP)
-        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.cpp.hip PROPERTIES LANGUAGE HIP)
+            ${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.gpu.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
+        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/tests/lib/gpu_kernel_tests.gpu.cpp PROPERTIES LANGUAGE HIP)
         target_compile_definitions(gpu_kernel_tests PRIVATE HIP_ENABLED)
         target_include_directories(gpu_kernel_tests PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/lib/)
         target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
-        set_property(TARGET gpu_kernel_tests PROPERTY HIP_ARCHITECTURES gfx900)
+        set_property(TARGET gpu_kernel_tests PROPERTY HIP_ARCHITECTURES ${HIP_ARCHITECTURE_LIST})
         if (OpenMP_CXX_FOUND)
             target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
         endif()
