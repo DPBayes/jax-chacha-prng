@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2023 Aalto University
 
 #include <iostream>
 #include <array>
@@ -7,6 +7,24 @@
 
 #include "tests.hpp"
 #include "gpu_kernel.hpp"
+
+#ifdef CUDA_ENABLED
+    #define gpuSuccess cudaSuccess
+    #define gpuMalloc cudaMalloc
+    #define gpuMemcpy cudaMemcpy
+    #define gpuMemcpyHostToDevice cudaMemcpyHostToDevice
+    #define gpuMemcpyDeviceToHost cudaMemcpyDeviceToHost
+    #define gpuFree cudaFree
+#endif
+
+#ifdef HIP_ENABLED
+    #define gpuSuccess hipSuccess
+    #define gpuMalloc hipMalloc
+    #define gpuMemcpy hipMemcpy
+    #define gpuMemcpyHostToDevice hipMemcpyHostToDevice
+    #define gpuMemcpyDeviceToHost hipMemcpyDeviceToHost
+    #define gpuFree hipFree
+#endif
 
 template <size_t size>
 class DeviceBuffer
@@ -16,7 +34,7 @@ private:
 public:
     DeviceBuffer() : _ptr(nullptr)
     {
-        if (hipMalloc(&_ptr, size * sizeof(uint32_t)) != hipSuccess)
+        if (gpuMalloc(&_ptr, size * sizeof(uint32_t)) != gpuSuccess)
             throw std::runtime_error("Could not allocate device memory!");
     }
 
@@ -29,20 +47,20 @@ public:
     {
         if (_ptr != nullptr)
         {
-            if (hipFree(_ptr) == hipSuccess)
+            if (gpuFree(_ptr) == gpuSuccess)
                 _ptr = nullptr;
         }
     }
 
     void write(const std::array<uint32_t, size>& data)
     {
-        if (hipMemcpy(_ptr, data.data(), size * sizeof(uint32_t), hipMemcpyHostToDevice) != hipSuccess)
+        if (gpuMemcpy(_ptr, data.data(), size * sizeof(uint32_t), gpuMemcpyHostToDevice) != gpuSuccess)
             throw std::runtime_error("Failed to copy data to device memory!");
     }
 
     void read(std::array<uint32_t, size>& buffer)
     {
-        if (hipMemcpy(buffer.data(), _ptr, size * sizeof(uint32_t), hipMemcpyDeviceToHost) != hipSuccess)
+        if (gpuMemcpy(buffer.data(), _ptr, size * sizeof(uint32_t), gpuMemcpyDeviceToHost) != gpuSuccess)
             throw std::runtime_error("Failed to copy data from device memory!");
 
     }
