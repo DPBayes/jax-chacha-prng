@@ -120,9 +120,14 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
 pybind11_add_module(
     native
     ${CMAKE_CURRENT_LIST_DIR}/lib/cpu_kernel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp)
+    ${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp NO_EXTRAS)
+# NO_EXTRAS prevents pybind11 from stripping symbols; for some reason for HIP compilation this strips all
+# pybind symbols as well, which means the model cannot be loaded from Python
+
 target_include_directories(native PRIVATE ${cpu_arch_path})
 target_compile_definitions(native PRIVATE ${cpu_arch_def})
+target_link_options(native PRIVATE "-s") # manually strip symbols from module; this does not run into the same
+# problem as letting Pybind do it for some reason...
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
@@ -176,6 +181,11 @@ separate_arguments(HIP_ARCHITECTURE_LIST UNIX_COMMAND ${HIP_ARCHITECTURES})
 
 if (CMAKE_HIP_COMPILER)
     enable_language(HIP)
+
+    # the following is done for CXX and CUDA automatically by pybind11_add_module, but not yet for HIP, so do it manually
+    if(NOT DEFINED CMAKE_HIP_VISIBILITY_PRESET)
+        set_target_properties(native PROPERTIES HIP_VISIBILITY_PRESET "hidden")
+    endif()
 
     target_compile_definitions(native PRIVATE HIP_ENABLED)
     target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
