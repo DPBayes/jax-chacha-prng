@@ -62,7 +62,7 @@ extensions = [
             "lib/cpu_kernel.cpp",
             "lib/cpu_kernel.hpp",
             "lib/defs.hpp",
-            "lib/gpu_kernel.cpp.cu",
+            "lib/gpu_kernel.gpu.cpp",
             "lib/gpu_kernel.hpp",
             "lib/python_bindings.cpp",
         ],
