@@ -54,7 +54,7 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_BUILD: "*-${{ matrix.platform }}*"
           CIBW_BUILD_VERBOSITY: 2
-          CIBW_ENVIRONMENT: JAX_CHACHA_PRNG_BUILD="cpu"
+          # CIBW_ENVIRONMENT: JAX_CHACHA_PRNG_BUILD="cpu"
 
       - name: Build wheels CUDA 11
         if: ${{ matrix.platform == 'manylinux' && matrix.arch == 'x86_64' }}
@@ -66,7 +66,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             curl -o installer.run -s https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run &&
             /bin/sh ./installer.run --toolkit --silent
-          CIBW_ENVIRONMENT: PATH=/usr/local/cuda/bin:$PATH JAX_CHACHA_PRNG_BUILD="cuda11.1"
+          CIBW_ENVIRONMENT: PATH=/usr/local/cuda/bin:$PATH # JAX_CHACHA_PRNG_BUILD="cuda11.1"
 
       - uses: actions/upload-artifact@v3
         with:
