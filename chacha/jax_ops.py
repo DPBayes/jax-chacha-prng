@@ -16,7 +16,6 @@ import jax
 from jax.lib import xla_client
 from jax.interpreters import xla, batching, mlir
 from jaxlib.mlir import ir
-from jaxlib.hlo_helpers import custom_call
 import jax.numpy as jnp
 import numpy as np  # type: ignore
 
@@ -48,13 +47,24 @@ except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import XlaOp. "
                           "You are probably using an incompatible version of jax.")
 
+try:
+    from jaxlib.hlo_helpers import custom_call
+except (AttributeError, ImportError):
+    try:
+        from jaxlib.mhlo_helpers import custom_call
+    except (AttributeError, ImportError):
+        raise ImportError("Cannot import custom_call. "
+                          "You are probably using an incompatible version of jax.")
+
 xla_client.register_cpu_custom_call_target(
     b"cpu_chacha20_block", chacha.native.cpu_chacha20_block_factory()
 )
 
+
 class Platform(Enum):
     CPU = 1
     GPU = 2
+
 
 def _chacha20_block_translation(
         platform: Platform,
@@ -118,18 +128,12 @@ chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 
 # xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
 mlir.register_lowering(chacha20_p, _chacha20_block_cpu_translation, platform="cpu")
-mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform="gpu")
 
-        return xla_client.ops.CustomCallWithLayout(
-            c, b"gpu_chacha20_block", operands=(states,), operand_shapes_with_layout=(state_xla_shape,),
-            shape_with_layout=state_xla_shape,
-            opaque=num_states_bytes
-        )
-
-    xla.backend_specific_translations["gpu"][chacha20_p] = _chacha20_block_gpu_translation
-
-except AttributeError:
-    pass  # no GPU support code was built in native ops
+if chacha.native.cuda_supported():
+    xla_client.register_custom_call_target(
+        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform="gpu"
+    )
+    mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform="gpu")
 
 
 ## BATCHING RULE, FOR VMAP
