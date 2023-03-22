@@ -9,13 +9,16 @@ This module sets up the native implementation of the ChaCha20 block function as 
 from chacha.defs import ChaChaState
 from functools import partial
 
+from enum import Enum
+from typing import Any, Tuple, Union, Sequence
+
 import jax
 from jax.lib import xla_client
-from jax.interpreters import xla, batching
+from jax.interpreters import xla, batching, mlir
+from jaxlib.mlir import ir
+from jaxlib.hlo_helpers import custom_call
 import jax.numpy as jnp
 import numpy as np  # type: ignore
-from typing import Any, Tuple
-import jax.random
 
 import chacha.native
 
@@ -49,72 +52,73 @@ xla_client.register_cpu_custom_call_target(
     b"cpu_chacha20_block", chacha.native.cpu_chacha20_block_factory()
 )
 
+class Platform(Enum):
+    CPU = 1
+    GPU = 2
 
-def _chacha20_block_cpu_translation(c: Any, states: XlaOp) -> XlaOp:
-    state_xla_shape = c.get_shape(states)
-    state_shape = state_xla_shape.dimensions()
+def _chacha20_block_translation(
+        platform: Platform,
+        ctx: mlir.LoweringRuleContext, 
+        states: Union[ir.Value, Sequence[ir.Value]]
+        ) -> Sequence[Union[ir.Value, Sequence[ir.Value]]]:
+    state_type = mlir.ir.RankedTensorType(states.type)
+    state_shape = state_type.shape
+    layout = tuple(range(len(state_shape) - 1, -1, -1))
 
     assert len(state_shape) >= 2
-    assert state_shape[-2:] in ((4, 4), (16, 1), (16,))
+    assert tuple(state_shape)[-2:] == (4, 4)
 
     batch_dims = state_shape[:-2]
     num_states = np.prod(batch_dims).astype(np.uint32)
 
-    num_states = xla_client.ops.ConstantLiteral(c, num_states)
-    num_states_xla_shape = xla_client.Shape.array_shape(np.dtype(np.uint32), (), ())
+    if platform == Platform.CPU:
+        call_ret = custom_call(
+            b"cpu_chacha20_block",
+            out_types=[state_type],
+            operands=[mlir.ir_constant(num_states), states],
+            operand_layouts=[(), layout],
+            result_layouts=[layout]
+        )
+    else:
+        call_ret = custom_call(
+            b"gpu_chacha20_block",
+            out_types=[state_type],
+            operands=[states],
+            operand_layouts=[layout],
+            result_layouts=[layout]
+        )
+    return (call_ret,)
 
-    call_ret = xla_client.ops.CustomCallWithLayout(
-        c, b"cpu_chacha20_block", operands=(num_states, states),
-        operand_shapes_with_layout=(num_states_xla_shape, state_xla_shape),
-        shape_with_layout=state_xla_shape
-    )
-    return call_ret
+
+def _chacha20_block_cpu_translation(
+        ctx: mlir.LoweringRuleContext, 
+        states: Union[ir.Value, Sequence[ir.Value]]
+        ) -> Sequence[Union[ir.Value, Sequence[ir.Value]]]:
+    return _chacha20_block_translation(Platform.CPU, ctx, states)
+
+
+def _chacha20_block_gpu_translation(
+        ctx: mlir.LoweringRuleContext, 
+        states: Union[ir.Value, Sequence[ir.Value]]
+        ) -> Sequence[Union[ir.Value, Sequence[ir.Value]]]:
+    return _chacha20_block_translation(Platform.GPU, ctx, states)
 
 
 def _chacha20_block_abstract_eval(states: jnp.ndarray) -> ShapedArray:
     state_shape = states.shape
     dtype = dtypes.canonicalize_dtype(states.dtype)
-    return ShapedArray(state_shape, dtype)
-
+    abstract_output = ShapedArray(state_shape, dtype)
+    return abstract_output
+   
 
 chacha20_p = jax.core.Primitive("chacha20")
 chacha20_p.multiple_results = False
-chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 chacha20_p.def_impl(partial(xla.apply_primitive, chacha20_p))
+chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 
-xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
-
-
-def chacha20_block(state: ChaChaState) -> ChaChaState:
-    if jnp.shape(state) not in ((4, 4), (16, 1), (16,)):
-        raise ValueError(
-            f"Argument to chacha20_block did have unexpected shape. Did you pass a ChaCha state? "
-            f"Got: {jnp.shape(state)}, expected (4,4)."
-        )
-    if jnp.dtype(state) != jnp.uint32:
-        raise ValueError(
-            f"Argument to chacha20_block did have unexpected type. Did you pass a ChaCha state? "
-            f"Got: {jnp.dtype(state)}, expected uint32."
-        )
-
-    # CAUTION: currently implicitly assumes that 4x4 matrix is represented as row-major array
-    return chacha20_p.bind(state)
-
-
-try:
-    xla_client.register_custom_call_target(
-        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform="gpu"
-    )
-
-    def _chacha20_block_gpu_translation(c: Any, states: XlaOp) -> XlaOp:
-        state_xla_shape = c.get_shape(states)
-        state_shape = state_xla_shape.dimensions()
-
-        assert len(state_shape) >= 2
-        assert state_shape[-2:] in ((4, 4), (16, 1), (16,))
-
-        batch_dims = state_shape[:-2]
-        num_states_bytes = int(np.prod(batch_dims)).to_bytes(4, 'little')
+# xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
+mlir.register_lowering(chacha20_p, _chacha20_block_cpu_translation, platform="cpu")
+mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform="gpu")
 
         return xla_client.ops.CustomCallWithLayout(
             c, b"gpu_chacha20_block", operands=(states,), operand_shapes_with_layout=(state_xla_shape,),
@@ -149,3 +153,20 @@ def _chacha20_block_batch(states: jnp.ndarray, batch_axes: Tuple[int]) -> Tuple[
 
 
 batching.primitive_batchers[chacha20_p] = _chacha20_block_batch
+
+
+def chacha20_block(state: ChaChaState) -> ChaChaState:
+    if jnp.shape(state) not in ((4, 4), (16, 1), (16,)):
+        raise ValueError(
+            f"Argument to chacha20_block did have unexpected shape. Did you pass a ChaCha state? "
+            f"Got: {jnp.shape(state)}, expected (4,4)."
+        )
+    if jnp.dtype(state) != jnp.uint32:
+        raise ValueError(
+            f"Argument to chacha20_block did have unexpected type. Did you pass a ChaCha state? "
+            f"Got: {jnp.dtype(state)}, expected uint32."
+        )
+
+    # CAUTION: currently implicitly assumes that 4x4 matrix is represented as row-major array
+    ret = chacha20_p.bind(state)
+    return ret
