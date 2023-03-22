@@ -80,6 +80,7 @@ def _chacha20_block_translation(
 
     batch_dims = state_shape[:-2]
     num_states = np.prod(batch_dims).astype(np.uint32)
+    num_states_bytes = int(np.prod(batch_dims)).to_bytes(4, 'little')
 
     if platform == Platform.CPU:
         call_ret = custom_call(
@@ -95,7 +96,8 @@ def _chacha20_block_translation(
             out_types=[state_type],
             operands=[states],
             operand_layouts=[layout],
-            result_layouts=[layout]
+            result_layouts=[layout],
+            backend_config=num_states_bytes
         )
     return (call_ret,)
 
