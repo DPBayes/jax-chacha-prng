@@ -154,6 +154,7 @@ if (CMAKE_CUDA_COMPILER)
     target_compile_definitions(native PRIVATE CUDA_ENABLED)
     target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
     set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp PROPERTIES LANGUAGE CUDA)
     # compile for lowest compute capability supported by XLA: 3.5
     # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
     set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
@@ -190,6 +191,7 @@ if (CMAKE_HIP_COMPILER)
     target_compile_definitions(native PRIVATE HIP_ENABLED)
     target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
     set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp PROPERTIES LANGUAGE HIP)
+    set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp PROPERTIES LANGUAGE HIP)
     set_property(TARGET native PROPERTY HIP_ARCHITECTURES ${HIP_ARCHITECTURE_LIST})
 
 
