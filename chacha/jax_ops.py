@@ -136,11 +136,17 @@ chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 # xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
 mlir.register_lowering(chacha20_p, _chacha20_block_cpu_translation, platform="cpu")
 
-if chacha.native.cuda_supported():
+def register_gpu_target(platform: str):
     xla_client.register_custom_call_target(
-        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform="gpu"
+        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform=platform.upper()
     )
-    mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform="gpu")
+    mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform=platform.lower())
+
+if chacha.native.cuda_supported():
+    register_gpu_target("cuda")
+
+if chacha.native.hip_supported():
+    register_gpu_target("rocm")
 
 
 ## BATCHING RULE, FOR VMAP
