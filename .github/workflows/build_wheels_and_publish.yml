@@ -5,7 +5,7 @@ name: Build_pypi_wheels
 
 on:
   push:
-    branches: [ "*stable", "cuda_pypi_build" ]
+    branches: [ "*stable", "fix_openmp_conda_mac" ]
     tags: [ "*rc*"]
 
 jobs:
@@ -67,6 +67,7 @@ jobs:
             curl -o installer.run -s https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run &&
             /bin/sh ./installer.run --toolkit --silent
           CIBW_ENVIRONMENT: PATH=/usr/local/cuda/bin:$PATH # JAX_CHACHA_PRNG_BUILD="cuda11.1"
+          CIBW_ENVIRONMENT_MACOS: JAX_CHACHA_PRNG_DISABLE_OPENMP=1
 
       - uses: actions/upload-artifact@v3
         with:
