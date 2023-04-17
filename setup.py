@@ -27,6 +27,9 @@ class CMakeBuildExt(build_ext):
             "-DCMAKE_OSX_ARCHITECTURES={}".format(osx_architectures)
         ]
 
+        if os.environ.get("JAX_CHACHA_PRNG_DISABLE_OPENMP", "0") == "1":
+            cmake_args.append("-DDISABLE_OPENMP=On")
+
         os.makedirs(self.build_temp, exist_ok=True)
 
         HERE = os.path.dirname(os.path.realpath(__file__))

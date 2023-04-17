@@ -6,6 +6,7 @@ project(jax-chacha20-prng LANGUAGES CXX)
 
 option(BUILD_TESTING "Build tests for native kernels" OFF)
 option(FORCE_GENERIC "Build without CPU architecture optimized instructions" OFF)
+option(DISABLE_OPENMP "Do not use OpenMP parallelisation for CPU kernels" OFF)
 
 set(CMAKE_CXX_STANDARD 14)
 set(cpu_arch_path "${CMAKE_CURRENT_LIST_DIR}/lib/generic/")
@@ -102,11 +103,15 @@ find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
 add_subdirectory(extern/pybind11)
 # find_package(pybind11 REQUIRED) # broken; does not use correct Python interpreter/libraries in a conda env
 
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    add_compile_definitions(OPENMP_AVAILABLE)
+if(NOT DISABLE_OPENMP)
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        add_compile_definitions(OPENMP_AVAILABLE)
+    else()
+        message(WARNING "OpenMP not found - Compiling without, but you may see lower performance.")
+    endif()
 else()
-    message(WARNING "OpenMP not found - Compiling without, but you may see lower performance.")
+    message("-- OpenMP disabled by user")
 endif()
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/lib)
