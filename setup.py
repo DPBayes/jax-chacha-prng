@@ -7,6 +7,7 @@ from setuptools.command.build_ext import build_ext
 import os
 import subprocess
 import re
+import sys
 
 class CMakeBuildExt(build_ext):
     # adapted from https://github.com/dfm/extending-jax
@@ -24,7 +25,8 @@ class CMakeBuildExt(build_ext):
             "-DCMAKE_BUILD_TYPE={}".format(
                 "Debug" if self.debug else "Release"
             ),
-            "-DCMAKE_OSX_ARCHITECTURES={}".format(osx_architectures)
+            "-DCMAKE_OSX_ARCHITECTURES={}".format(osx_architectures),
+            "-DPython3_ROOT_DIR={}".format(sys.exec_prefix),
         ]
 
         if os.environ.get("JAX_CHACHA_PRNG_DISABLE_OPENMP", "0") == "1":
