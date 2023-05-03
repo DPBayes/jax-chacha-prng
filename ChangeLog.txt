@@ -1,3 +1,6 @@
+- 1.4.1:
+    - Fix: native module not built for correct Python verison for MacOS.
+    - Fix: Wheels for MacOS no longer build with OpenMP to avoid complicatons with conda environments.
 - 1.4.0:
     - Changed: manylinux wheels for x86_64 architecture are now built with support for CUDA 11.1.
 - 1.3.0:
