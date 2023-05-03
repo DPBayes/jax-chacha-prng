@@ -35,10 +35,10 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - uses: actions/setup-python@v4
-        name: Install Python
-        with:
-          python-version: '3.9'
+      # - uses: actions/setup-python@v4
+      #   name: Install Python
+      #   with:
+      #     python-version: '3.9'
 
       - name: Set up QEMU
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
@@ -54,6 +54,7 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_BUILD: "*-${{ matrix.platform }}*"
           CIBW_BUILD_VERBOSITY: 2
+          CIBW_ENVIRONMENT_MACOS: JAX_CHACHA_PRNG_DISABLE_OPENMP=1
           # CIBW_ENVIRONMENT: JAX_CHACHA_PRNG_BUILD="cpu"
 
       - name: Build wheels CUDA 11
