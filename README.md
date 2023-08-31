@@ -28,7 +28,7 @@ The package currently exposes basic RNG functions using the same interface as `J
 
 *Note*: `PRNGKey` instances of this ChaCha20-based RNG are not interoperable with those of `jax.random`, i.e., you cannot mix them.
 
-**Security notice** Versions prior to 2.0.0 may repeat random states via the `split` and `fold_in` functions.
+**Security notice** Versions prior to 3.0.0 may repeat random states via the `split` and `fold_in` functions.
 
 #### Usage notes
 Per conventions of pseudo-random number generation in the `JAX` framework, the functions `random_bits` and `uniform` are
@@ -62,7 +62,7 @@ For the latest stable version install via pip
 pip install jax-chacha-prng
 ```
 
-Binaries for glibc based 64-bit linux systems (manylinux wheels) are compiled with CPU and CUDA support (you will have to [install JAX with CUDA support](https://github.com/google/jax#pip-installation-gpu-cuda) to benefit from this).
+Binaries for glibc based 64-bit linux systems (manylinux wheels) are compiled with CPU and CUDA 11 support (you will have to [install JAX with CUDA support](https://github.com/google/jax#pip-installation-gpu-cuda) to benefit from this).
 Binaries for all other systems are compiled for CPU execution only. This is because JAX does not have CUDA libraries for these systems either.
 
 However, you can instruct pip to instead compile the package from sources via
@@ -70,9 +70,9 @@ However, you can instruct pip to instead compile the package from sources via
 pip install --no-binary :all: jax-chacha-prng
 ```
 
-or by installing it directly from the `v1-stable` branch:
+or by installing it directly from the `v2-stable` branch:
 ```
-pip install git+https://github.com/DPBayes/jax-chacha-prng@v1-stable#egg=jax-chacha-prng
+pip install git+https://github.com/DPBayes/jax-chacha-prng@v2-stable#egg=jax-chacha-prng
 ```
 
 This will compile CUDA kernels if the CUDA library is present on the system,
@@ -94,7 +94,7 @@ JAX version known to be compatible with JAX-ChaCha-PRNG:
 pip install .[compatible-jax]
 ```
 
-JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.2.12 - 0.3.25 .
+The latest version of JAX-ChaCha-PRNG is currently known to work reliably with JAX versions 0.4.1 - 0.4.14 .
 We regularly check the compatible version range, but do not expect new versions of JAX to be immediately tested.
 
 ## Versioning

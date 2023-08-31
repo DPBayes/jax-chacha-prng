@@ -1,3 +1,7 @@
+- 2.0.0:
+    - Added: support for jax up to v0.4.14
+    - Removed: support for Python <v3.8 and jax before v0.4.1
+    - Added: GPU kernels can now be compiled for AMD HIP/ROCM
 - 1.4.1:
     - Fix: native module not built for correct Python verison for MacOS.
     - Fix: Wheels for MacOS no longer build with OpenMP to avoid complicatons with conda environments.

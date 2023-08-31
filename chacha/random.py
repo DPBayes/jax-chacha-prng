@@ -103,7 +103,7 @@ def _split(rng_key: RNGState, num: int) -> RNGState:
 
 
 @jax.jit
-@deprecation.deprecated(deprecated_in="1.2.0", removed_in="2.0.0",
+@deprecation.deprecated(deprecated_in="1.2.0", removed_in="3.0.0",
                         current_version=VERSION,
                         details="Deriving new random states will only be possible using the split function in future.")
 def fold_in(rng_key: RNGState, data: int) -> RNGState:
