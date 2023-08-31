@@ -21,26 +21,31 @@ import chacha.native
 
 # importing ShapedArray and dtypes
 try:
-    # pre jax v0.2.14 location
-    from jax.abstract_arrays import ShapedArray  # type: ignore
-    from jax import dtypes  # type: ignore
+    # post jax v0.4.13 (or so) location
+    from jax.core import ShapedArray  # type: ignore
+    from jax._src import dtypes  # type: ignore
 except (AttributeError, ImportError):  # pragma: no cover
-    # post jax v0.2.14 location
     try:
+        # post jax v0.2.14 location
         from jax._src.abstract_arrays import ShapedArray  # type: ignore
         from jax._src import dtypes  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
-        raise ImportError("Cannot import ShapedArray and dtypes. "
+        try:
+            # pre jax v0.2.14 location
+            from jax.abstract_arrays import ShapedArray  # type: ignore
+            from jax import dtypes  # type: ignore
+        except (AttributeError, ImportError):  # pragma: no cover
+            raise ImportError("Cannot import ShapedArray and dtypes. "
                           "You are probably using an incompatible version of jax.")
 
 # importing XlaOp
 try:
-    # pre jax v0.2.13 location
-    XlaOp = jax.xla.XlaOp  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
     # post jax v0.2.13 location
+    from jaxlib.xla_client import XlaOp  # type: ignore
+except (AttributeError, ImportError):  # pragma: no cover
     try:
-        from jaxlib.xla_client import XlaOp  # type: ignore
+        # pre jax v0.2.13 location
+        XlaOp = jax.xla.XlaOp  # type: ignore
     except (AttributeError, ImportError):  # pragma: no cover
         raise ImportError("Cannot import XlaOp. "
                           "You are probably using an incompatible version of jax.")
