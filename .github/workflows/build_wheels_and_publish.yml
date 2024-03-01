@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2023 Aalto University
+# SPDX-FileCopyrightText: © 2023 Aalto University, © 2024 Lukas Prediger
 
 name: Build_pypi_wheels
 
@@ -36,12 +36,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: 'recursive'
-
-      # - uses: actions/setup-python@v4
-      #   name: Install Python
-      #   with:
-      #     python-version: '3.9'
-
       - name: Set up QEMU
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@v2
