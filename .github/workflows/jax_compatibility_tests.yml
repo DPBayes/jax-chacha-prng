@@ -33,7 +33,7 @@ jobs:
         python -m pip install pytest
     - name: Install dependencies
       run: |
-        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}" "numpy < 1.24"
+        python -m pip install "jax[cpu]==${{ matrix.jax-version }}" "numpy < 1.24"
         python -m pip install .
     - name: Test with pytest
       run: |
@@ -47,7 +47,7 @@ jobs:
         jax-version: [
           0.2.18, 0.2.19, 0.2.20, 0.2.21,
           0.2.22, 0.2.27, 0.3.1, 0.3.13, 0.3.15,
-          0.3.17, 0.3.23, 0.3.25
+          0.3.17, 0.3.23, 0.3.25, 0.4.14
         ]
 
     steps:
@@ -64,7 +64,7 @@ jobs:
         python -m pip install pytest
     - name: Install dependencies
       run: |
-        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}"
+        python -m pip install "jax[cpu]==${{ matrix.jax-version }}"
         python -m pip install .
     - name: Test with pytest
       run: |
