@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2023 Aalto University
+# SPDX-FileCopyrightText: © 2023 Aalto University, © 2024 Aalto University
 
 name: Jax Compatibility Tests
 
@@ -33,7 +33,7 @@ jobs:
         python -m pip install pytest
     - name: Install dependencies
       run: |
-        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}" "numpy < 1.24"
+        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}" "numpy < 1.24" -f https://storage.googleapis.com/jax-releases/jax_releases.html
         python -m pip install .
     - name: Test with pytest
       run: |
@@ -46,8 +46,7 @@ jobs:
       matrix:
         jax-version: [
           0.2.18, 0.2.19, 0.2.20, 0.2.21,
-          0.2.22, 0.2.27, 0.3.1, 0.3.13, 0.3.15,
-          0.3.17, 0.3.23, 0.3.25
+          0.2.22, 0.2.27
         ]
 
     steps:
@@ -64,7 +63,37 @@ jobs:
         python -m pip install pytest
     - name: Install dependencies
       run: |
-        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}"
+        python -m pip install "jax[minimum-jaxlib]==${{ matrix.jax-version }}" -f https://storage.googleapis.com/jax-releases/jax_releases.html
+        python -m pip install .
+    - name: Test with pytest
+      run: |
+        pytest tests/
+
+  unittests-with-current-jaxlib:
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        jax-version: [
+          0.3.1, 0.3.13, 0.3.15,
+          0.3.17, 0.3.23, 0.3.25, 0.4.14
+        ]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install environment
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest
+    - name: Install dependencies
+      run: |
+        python -m pip install "jax[cpu]==${{ matrix.jax-version }}" -f https://storage.googleapis.com/jax-releases/jax_releases.html
         python -m pip install .
     - name: Test with pytest
       run: |

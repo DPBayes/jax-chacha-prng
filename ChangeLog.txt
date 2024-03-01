@@ -1,3 +1,5 @@
+- 1.4.2:
+    - Hotfix: preventing installation from pulling incompatible jax versions >0.4.14
 - 1.4.1:
     - Fix: native module not built for correct Python verison for MacOS.
     - Fix: Wheels for MacOS no longer build with OpenMP to avoid complicatons with conda environments.
