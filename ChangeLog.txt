@@ -1,3 +1,6 @@
+- 1.4.3:
+    - Added: support for jax up to v0.4.25.
+    - Removed: support for Python v3.6, v3.7 (no more available jaxlib)
 - 1.4.2:
     - Hotfix: preventing installation from pulling incompatible jax versions >0.4.14
 - 1.4.1:

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2023 Aalto University, © 2024 Lukas Prediger
 
 """ A JAX-accelerated implementation of the 20-round ChaCha cipher.
 
@@ -53,23 +53,55 @@ except (AttributeError, ImportError):  # pragma: no cover
                           "You are probably using an incompatible version of jax.")
 
 try:
-    from jaxlib.hlo_helpers import custom_call
+    from jaxlib.hlo_helpers import custom_call as jax_custom_call
 except (AttributeError, ImportError):
     try:
-        from jaxlib.mhlo_helpers import custom_call
+        from jaxlib.mhlo_helpers import custom_call as jax_custom_call
     except (AttributeError, ImportError):
         raise ImportError("Cannot import custom_call. "
                           "You are probably using an incompatible version of jax.")
-
-xla_client.register_cpu_custom_call_target(
-    b"cpu_chacha20_block", chacha.native.cpu_chacha20_block_factory()
-)
+    
 
 
-class Platform(Enum):
-    CPU = 1
-    GPU = 2
+class Platform(str, Enum):
+    CPU = "cpu"
+    GPU = "gpu"
 
+
+if hasattr(xla_client, "register_cpu_custom_call_target"):
+    # pre jax v0.4.16 behaviour
+    def register_custom_call_target(name: str, fn: Any, platform: Platform) -> None:
+        name = name.encode("utf-8")
+        if platform == Platform.CPU:
+            xla_client.register_cpu_custom_call_target(name, fn, 'cpu')
+        elif platform == Platform.GPU:
+            xla_client.register_custom_call_target(name, fn, platform='cpu')
+
+    def custom_call(name, result_types, operands, operand_layouts, result_layouts, backend_config="") -> Any:
+        call_ret = jax_custom_call(
+            name.encode("utf-8"),
+            out_types=result_types,
+            operands=operands,
+            operand_layouts=operand_layouts,
+            result_layouts=result_layouts,
+            backend_config=backend_config
+        )
+        return (call_ret,)
+else:
+    # post jax v0.4.16 behaviour
+    def register_custom_call_target(name: str, fn: Any, platform: Platform) -> None:
+        xla_client.register_custom_call_target(name, fn, platform.value)
+
+    def custom_call(name, result_types, operands, operand_layouts, result_layouts, backend_config="") -> Any:
+        call_ret = jax_custom_call(
+            name,
+            result_types=result_types,
+            operands=operands,
+            operand_layouts=operand_layouts,
+            result_layouts=result_layouts,
+            backend_config=backend_config
+        )
+        return call_ret.results
 
 def _chacha20_block_translation(
         platform: Platform,
@@ -89,22 +121,22 @@ def _chacha20_block_translation(
 
     if platform == Platform.CPU:
         call_ret = custom_call(
-            b"cpu_chacha20_block",
-            out_types=[state_type],
+            "cpu_chacha20_block",
+            result_types=[state_type],
             operands=[mlir.ir_constant(num_states), states],
             operand_layouts=[(), layout],
             result_layouts=[layout]
         )
     else:
         call_ret = custom_call(
-            b"gpu_chacha20_block",
-            out_types=[state_type],
+            "gpu_chacha20_block",
+            result_types=[state_type],
             operands=[states],
             operand_layouts=[layout],
             result_layouts=[layout],
             backend_config=num_states_bytes
         )
-    return (call_ret,)
+    return call_ret
 
 
 def _chacha20_block_cpu_translation(
@@ -133,12 +165,15 @@ chacha20_p.multiple_results = False
 chacha20_p.def_impl(partial(xla.apply_primitive, chacha20_p))
 chacha20_p.def_abstract_eval(_chacha20_block_abstract_eval)
 
-# xla.backend_specific_translations["cpu"][chacha20_p] = _chacha20_block_cpu_translation
-mlir.register_lowering(chacha20_p, _chacha20_block_cpu_translation, platform="cpu")
+
+register_custom_call_target(
+    "cpu_chacha20_block", chacha.native.cpu_chacha20_block_factory(), platform=Platform.CPU
+)
+mlir.register_lowering(chacha20_p, _chacha20_block_cpu_translation, platform=Platform.CPU)
 
 if chacha.native.cuda_supported():
-    xla_client.register_custom_call_target(
-        b"gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform="gpu"
+    register_custom_call_target(
+        "gpu_chacha20_block", chacha.native.gpu_chacha20_block_factory(), platform=Platform.GPU
     )
     mlir.register_lowering(chacha20_p, _chacha20_block_gpu_translation, platform="gpu")
 
