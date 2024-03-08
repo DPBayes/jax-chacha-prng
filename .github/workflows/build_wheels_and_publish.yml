@@ -128,8 +128,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: dist
           path: ./dist/
+          merge-multiple: true
       - name: Publish Pre-Release
         if: startsWith(github.ref, 'refs/tags/')
         env:
