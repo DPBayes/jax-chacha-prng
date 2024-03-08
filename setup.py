@@ -83,8 +83,8 @@ spec = importlib.util.spec_from_file_location("version_module", "chacha/version.
 version_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(version_module)
 
-_jax_version_lower_constraint = ' >= 0.2.12'
-_jax_version_optimistic_upper_constraint = ', <= 1.0.0'
+_jax_version_lower_constraint = ' >= 0.3.15'
+_jax_version_optimistic_upper_constraint = ', < 1.0.0'
 _jax_version_upper_constraint = ', <= 0.4.25'
 
 _version = version_module.VERSION
@@ -101,7 +101,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/DPBayes/jax-chacha-prng",
     packages=setuptools.find_packages(include=['chacha', 'chacha.*']),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=[
         "numpy >= 1.16, < 2",
         "deprecation < 3",
