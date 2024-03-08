@@ -17,40 +17,16 @@ from jax.lib import xla_client
 from jax.interpreters import xla, batching, mlir
 from jaxlib.mlir import ir
 import jax.numpy as jnp
-import numpy as np  # type: ignore
+import numpy as np
 
 import chacha.native
 
-# importing ShapedArray and dtypes
-try:
-    # post jax v0.4.13 (or so) location
-    from jax.core import ShapedArray  # type: ignore
-    from jax._src import dtypes  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
-    try:
-        # post jax v0.2.14 location
-        from jax._src.abstract_arrays import ShapedArray  # type: ignore
-        from jax._src import dtypes  # type: ignore
-    except (AttributeError, ImportError):  # pragma: no cover
-        try:
-            # pre jax v0.2.14 location
-            from jax.abstract_arrays import ShapedArray  # type: ignore
-            from jax import dtypes  # type: ignore
-        except (AttributeError, ImportError):  # pragma: no cover
-            raise ImportError("Cannot import ShapedArray and dtypes. "
-                          "You are probably using an incompatible version of jax.")
+from jax._src.abstract_arrays import ShapedArray
+from jax._src import dtypes
 
-# importing XlaOp
-try:
-    # post jax v0.2.13 location
-    from jaxlib.xla_client import XlaOp  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
-    try:
-        # pre jax v0.2.13 location
-        XlaOp = jax.xla.XlaOp  # type: ignore
-    except (AttributeError, ImportError):  # pragma: no cover
-        raise ImportError("Cannot import XlaOp. "
-                          "You are probably using an incompatible version of jax.")
+class Platform(str, Enum):
+    CPU = "cpu"
+    GPU = "gpu"
 
 try:
     from jaxlib.hlo_helpers import custom_call as jax_custom_call
@@ -60,12 +36,6 @@ except (AttributeError, ImportError):
     except (AttributeError, ImportError):
         raise ImportError("Cannot import custom_call. "
                           "You are probably using an incompatible version of jax.")
-    
-
-
-class Platform(str, Enum):
-    CPU = "cpu"
-    GPU = "gpu"
 
 
 if hasattr(xla_client, "register_cpu_custom_call_target"):
@@ -102,6 +72,7 @@ else:
             backend_config=backend_config
         )
         return call_ret.results
+
 
 def _chacha20_block_translation(
         platform: Platform,
