@@ -18,7 +18,7 @@ jobs:
       matrix:
         force_generic: ['On', 'Off']
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: Install environment
@@ -43,7 +43,7 @@ jobs:
       matrix:
         force_generic: ['On', 'Off']
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: Build and run in container

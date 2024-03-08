@@ -33,32 +33,34 @@ jobs:
           - os: ubuntu-20.04
             arch: arm64
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
       - name: Set up QEMU
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Build wheels CPU only
         if: ${{ !(matrix.platform == 'manylinux' && matrix.arch == 'x86_64') }}
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.16
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_BUILD: "*-${{ matrix.platform }}*"
+          CIBW_SKIP: "cp36-*"
           CIBW_BUILD_VERBOSITY: 2
           CIBW_ENVIRONMENT_MACOS: JAX_CHACHA_PRNG_DISABLE_OPENMP=1
           # CIBW_ENVIRONMENT: JAX_CHACHA_PRNG_BUILD="cpu"
 
       - name: Build wheels CUDA 11
         if: ${{ matrix.platform == 'manylinux' && matrix.arch == 'x86_64' }}
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.16
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
           CIBW_BUILD: "*-${{ matrix.platform }}*"
+          CIBW_SKIP: "cp36-*"
           CIBW_BUILD_VERBOSITY: 2
           CIBW_BEFORE_ALL_LINUX: >
             curl -o installer.run -s https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run &&
@@ -66,20 +68,20 @@ jobs:
           CIBW_ENVIRONMENT: PATH=/usr/local/cuda/bin:$PATH # JAX_CHACHA_PRNG_BUILD="cuda11.1"
           CIBW_ENVIRONMENT_MACOS: JAX_CHACHA_PRNG_DISABLE_OPENMP=1
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
-          name: dist
+          name: dist-${{ matrix.platform }}-${{ matrix.arch }}
 
   build_pypi_source_dist:
     name: Build source distribution package for PyPI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: '3.9'
@@ -90,10 +92,10 @@ jobs:
       - name: Build sdist
         run: python -m build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: ./dist/*.tar.gz
-          name: dist
+          name: dist-source
 
   upload_pypi_wheels:
     name: Upload wheels to PyPI
@@ -103,10 +105,10 @@ jobs:
       - build_pypi_binary_wheels
       - build_pypi_source_dist
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: dist
           path: ./dist/
+          merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@release/v1
         name: Upload to PyPI
         with:
@@ -123,8 +125,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: ./dist/
