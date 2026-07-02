@@ -28,7 +28,8 @@ The package currently exposes basic RNG functions using the same interface as `J
 
 *Note*: `PRNGKey` instances of this ChaCha20-based RNG are not interoperable with those of `jax.random`, i.e., you cannot mix them.
 
-**Security notice** Versions prior to 3.0.0 may repeat random states via the `split` and `fold_in` functions.
+**Security notice** Versions prior to 3.0.0 may repeat random states via the `split` and `fold_in` functions and thus result
+in identical random bit streams for different splits in rare occasions.
 
 #### Usage notes
 Per conventions of pseudo-random number generation in the `JAX` framework, the functions `random_bits` and `uniform` are
@@ -62,8 +63,8 @@ For the latest stable version install via pip
 pip install jax-chacha-prng
 ```
 
-Binaries for glibc based 64-bit linux systems (manylinux wheels) are compiled with CPU and CUDA 11 support (you will have to [install JAX with CUDA support](https://github.com/google/jax#pip-installation-gpu-cuda) to benefit from this).
-Binaries for all other systems are compiled for CPU execution only. This is because JAX does not have CUDA libraries for these systems either.
+Binaries for glibc based 64-bit linux systems (manylinux wheels) are compiled with CPU and CUDA 12 support (you will have to [install JAX with CUDA support](https://github.com/google/jax#pip-installation-gpu-cuda) to benefit from this).
+Binaries for all other systems are compiled for CPU execution only.
 
 However, you can instruct pip to instead compile the package from sources via
 ```
@@ -76,8 +77,10 @@ pip install git+https://github.com/DPBayes/jax-chacha-prng@v2-stable#egg=jax-cha
 ```
 
 This will compile CUDA kernels if the CUDA library is present on the system,
-otherwise only CPU kernels will be built. To check whether CUDA kernels were
-built and installed, you can check the return value of `chacha.native.cuda_supported()`.
+ROCm kernels if the ROCm library can be found and otherwise only CPU kernels.
+To check whether CUDA or ROCm kernels were built and installed, you can check
+the return value of `chacha.native.cuda_supported()` or `chacha.native.hip_supported()`
+respectively.
 
 ### Note about JAX versions
 
