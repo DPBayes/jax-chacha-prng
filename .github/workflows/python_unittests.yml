@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 name: Python Unittests
 
@@ -11,11 +11,11 @@ on:
 
 jobs:
   unittests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.11', '3.12', '3.13']
 
     steps:
     - uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: 3.11
     - name: Install environment
       run: |
         python -m pip install --upgrade pip
@@ -73,7 +73,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: 3.11
     - name: Install environment
       run: |
         python -m pip install --upgrade pip

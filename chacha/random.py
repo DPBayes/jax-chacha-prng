@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 """ A cryptographically secure pseudo-random number generator for JAX.
 
@@ -20,7 +20,7 @@ The following invariants hold:
 import numpy as np  # type: ignore
 import jax
 import jax.numpy as jnp
-from jax._src.random import _check_shape
+from jax._src import dtypes
 import typing
 from functools import partial
 import deprecation
@@ -29,33 +29,17 @@ import chacha.cipher as cc
 from chacha import defs
 from chacha.version import VERSION
 
-# importing canonicalize_shape function
-try:
-    # pre jax v0.2.14 location
-    _canonicalize_shape = jax.abstract_arrays.canonicalize_shape  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
-    # post jax v0.2.14 location
-    try:
-        _canonicalize_shape = jax.core.canonicalize_shape  # type: ignore
-    except (AttributeError, ImportError):  # pragma: no cover
-        raise ImportError("Cannot import canonicalize_shape routine. "
-                          "You are probably using an incompatible version of jax.")
-
-# importing _UINT_DTYPES
-try:
-    # pre jax v0.2.20 location
-    _UINT_DTYPES = jax._src.random._UINT_DTYPES  # type: ignore
-except (AttributeError, ImportError):  # pragma: no cover
-    # post jax v.2.20 location
-    try:
-        from jax._src.random import UINT_DTYPES as _UINT_DTYPES  # type: ignore
-    except (AttributeError, ImportError) as e:  # pragma: no cover
-        raise ImportError("Cannot import UINT_DTYPES enum. "
-                          "You are probably using an incompatible version of jax.")
-
+from jax._src.core import canonicalize_shape
 
 RNGState = cc.ChaChaState
 
+allowed_bit_widths = frozenset({dtype.itemsize * 8 for dtype in dtypes._unsigned_types})
+_UINT_DTYPES = {
+    8: jnp.uint8,
+    16: jnp.uint16,
+    32: jnp.uint32,
+    64: jnp.uint64,
+}
 
 @partial(jax.jit, static_argnums=(1, 2))
 def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) -> jnp.ndarray:
@@ -69,8 +53,10 @@ def random_bits(rng_key: RNGState, bit_width: int, shape: typing.Sequence[int]) 
     Returns:
       An array of the given shape containing uniformly random unsigned integers with the given bit width.
     """
+    # assert dtypes.issubdtype(rng_key.dtype, dtypes.prng_key)
     if bit_width not in _UINT_DTYPES:
         raise ValueError(f"requires bit field width in {_UINT_DTYPES.keys()}")
+
     size = int(np.prod(shape, dtype=int))
     num_bits = bit_width * size
     num_blocks = int(np.ceil(num_bits / cc.ChaChaStateBitSize))
@@ -96,7 +82,7 @@ def _split(rng_key: RNGState, num: int) -> RNGState:
 
     def make_rng_key(nonce: jnp.ndarray) -> RNGState:
         assert jnp.shape(nonce) == (defs.ChaChaNonceSizeInWords,)
-        assert jnp.dtype(nonce) == defs.ChaChaStateElementType
+        assert nonce.dtype == defs.ChaChaStateElementType
         return cc.set_counter(cc.set_nonce(rng_key, nonce), 0)
 
     return jax.vmap(make_rng_key)(ivs)
@@ -119,7 +105,7 @@ def _uniform(
         minval: jnp.float_,
         maxval: jnp.float_
     ) -> jnp.ndarray:  # noqa:E121,E125
-    _check_shape("uniform", shape)
+    shape = canonicalize_shape(shape)
     if not jnp.issubdtype(dtype, np.floating):
         print("encountered exc in _uniform")
         raise TypeError("uniform only accepts floating point dtypes.")
@@ -218,5 +204,5 @@ def uniform(
     if not jax.dtypes.issubdtype(dtype, np.floating):
         raise TypeError(f"dtype argument to `uniform` must be a float dtype, got {dtype}")
     dtype = jax.dtypes.canonicalize_dtype(dtype)
-    shape = _canonicalize_shape(shape)
+    shape = canonicalize_shape(shape)
     return _uniform(key, shape, dtype, minval, maxval)

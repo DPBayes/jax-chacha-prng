@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2023 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 cmake_minimum_required(VERSION 3.21)
 project(jax-chacha20-prng LANGUAGES CXX)
@@ -129,6 +129,8 @@ target_compile_definitions(native PRIVATE ${cpu_arch_def})
 target_link_options(native PRIVATE "-s") # manually strip symbols from module; this does not run into the same
 # problem as letting Pybind do it for some reason...
 
+target_include_directories(native PRIVATE "extern/xla")
+
 if(OpenMP_CXX_FOUND)
     target_link_libraries(native PUBLIC OpenMP::OpenMP_CXX)
 endif()
@@ -155,9 +157,8 @@ if (CMAKE_CUDA_COMPILER)
     target_sources(native PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp)
     set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/gpu_kernel.gpu.cpp PROPERTIES LANGUAGE CUDA)
     set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/lib/python_bindings.cpp PROPERTIES LANGUAGE CUDA)
-    # compile for lowest compute capability supported by XLA: 3.5
-    # cf. https://www.tensorflow.org/install/gpu#hardware_requirements
-    set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 35)
+    # compile for lowest compute capability supported by CUDA12: 5.0
+    set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 50)
 
     if (BUILD_TESTING)
         add_executable(gpu_kernel_tests
@@ -168,7 +169,7 @@ if (CMAKE_CUDA_COMPILER)
         target_include_directories(gpu_kernel_tests PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/lib/)
         target_compile_definitions(gpu_kernel_tests PRIVATE ${cpu_arch_def})
-        set_property(TARGET gpu_kernel_tests PROPERTY CUDA_ARCHITECTURES 35)
+        set_property(TARGET native PROPERTY CUDA_ARCHITECTURES 50)
         if (OpenMP_CXX_FOUND)
             target_link_libraries(gpu_kernel_tests PUBLIC OpenMP::OpenMP_CXX)
         endif()

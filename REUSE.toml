@@ -1,0 +1,15 @@
+version = 1
+SPDX-PackageName = "jax-chacha-prng"
+SPDX-PackageDownloadLocation = "https://github.com/DPBayes/jax-chacha-prng"
+
+[[annotations]]
+path = "extern/pybind11/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "(c) 2016 Wenzel Jakob <wenzel.jakob@epfl.ch>, All rights reserved."
+SPDX-License-Identifier = "LicenseRef-pybind11License"
+
+[[annotations]]
+path = "extern/xla/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright 2023 The OpenXLA Authors"
+SPDX-License-Identifier = "Apache-2.0"

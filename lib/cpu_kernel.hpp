@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2022 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #pragma once
 
@@ -57,4 +57,4 @@ public:
 void unpack_diagonals(VectorizedState& out_state, VectorizedState in_state);
 void pack_diagonals(VectorizedState& out_state, VectorizedState in_state);
 void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16]);
-void cpu_chacha20_block(void* out_buffer, const void** in_buffers);
+void cpu_chacha20_block(uint32_t num_states, const uint32_t* state_buffer, uint32_t* result_buffer);

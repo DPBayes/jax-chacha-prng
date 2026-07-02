@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2023 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #include <cstdlib>
 #include <stdexcept>
@@ -117,26 +117,11 @@ void chacha20_block_with_shuffle(uint32_t* out_state, const uint32_t* in_state, 
     }
 }
 
-void gpu_chacha20_block(gpuStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length)
+void gpu_chacha20_block(gpuStream_t stream, uint32_t num_states, const uint32_t* in_states, uint32_t* out_states)
 {
-    uint32_t num_states = 1;
-    if (opaque_length > 0)
-    {
-        if (opaque_length != sizeof(uint32_t))
-        {
-            throw std::runtime_error(
-                "gpu_chacha20_block requires the opaque argument to be either null or a pointer to a 32-bit integer "
-                "indicating the number of states on which to operate."
-            );
-        }
-        num_states = *reinterpret_cast<const uint32_t*>(opaque);
-    }
-    const uint32_t* in_states = reinterpret_cast<const uint32_t*>(buffers[0]);
-    uint32_t* out_state = reinterpret_cast<uint32_t*>(buffers[1]);
-
     uint num_threads = (num_states * ThreadsPerState);
     uint num_blocks =  (num_threads + TargetThreadsPerBlock - 1) / TargetThreadsPerBlock; // = ceil(num_threads / TargetThreadsPerBlock)
 
     uint threads_per_block = std::min(num_threads, TargetThreadsPerBlock);
-    chacha20_block_with_shuffle<<<num_blocks, threads_per_block, 0, stream>>>(out_state, in_states, num_threads);
+    chacha20_block_with_shuffle<<<num_blocks, threads_per_block, 0, stream>>>(out_states, in_states, num_threads);
 }

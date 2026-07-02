@@ -83,9 +83,9 @@ spec = importlib.util.spec_from_file_location("version_module", "chacha/version.
 version_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(version_module)
 
-_jax_version_lower_constraint = ' >= 0.4.1'
-_jax_version_optimistic_upper_constraint = ', <= 2.0.0'
-_jax_version_upper_constraint = ', <= 0.4.14'
+_jax_version_lower_constraint = ' >= 0.10.0'
+_jax_version_optimistic_upper_constraint = ', <= 1.0.0'
+_jax_version_upper_constraint = ', < 0.11'
 
 _version = version_module.VERSION
 if 'JAX_CHACHA_PRNG_BUILD' in os.environ:
@@ -103,7 +103,7 @@ setuptools.setup(
     packages=setuptools.find_packages(include=['chacha', 'chacha.*']),
     python_requires='>=3.8',
     install_requires=[
-        "numpy >= 1.16, < 2",
+        "numpy >= 1.16, < 3",
         "deprecation < 3",
         f"jax{_jax_version_lower_constraint}{_jax_version_optimistic_upper_constraint}"
     ],

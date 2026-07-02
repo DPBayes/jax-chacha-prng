@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2023 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 name: Build_pypi_wheels
 
@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11]
+        os: [ubuntu-24.04, macos-11]
         platform: [manylinux, musllinux, macosx]
         arch: [x86_64, arm64, aarch64, universal2]
         exclude:
@@ -26,11 +26,11 @@ jobs:
             platform: musllinux
           - os: macos-11
             arch: aarch64
-          - os: ubuntu-20.04
+          - os: ubuntu-24.04
             platform: macosx
-          - os: ubuntu-20.04
+          - os: ubuntu-24.04
             arch: universal2
-          - os: ubuntu-20.04
+          - os: ubuntu-24.04
             arch: arm64
     steps:
       - uses: actions/checkout@v3
@@ -50,7 +50,7 @@ jobs:
 
       - name: Build wheels CPU only
         if: ${{ !(matrix.platform == 'manylinux' && matrix.arch == 'x86_64') }}
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Build wheels CUDA 11
         if: ${{ matrix.platform == 'manylinux' && matrix.arch == 'x86_64' }}
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
           CIBW_BUILD: "*-${{ matrix.platform }}*"
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/setup-python@v4
         name: Install Python
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
       - name: Setup build environment
         run: pip install build

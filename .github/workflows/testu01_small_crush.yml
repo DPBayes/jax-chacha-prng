@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 name: TestU01 Small Crush
 
@@ -10,7 +10,7 @@ on:
 
 jobs:
   small-crush:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: 3.11
     - name: Download and Compile TestU01
       working-directory: rng_testsuite/extern
       run: |

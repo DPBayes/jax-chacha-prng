@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2023 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #include <iostream>
 #include <array>
@@ -103,11 +103,8 @@ int test_gpu_chacha20_block()
     DeviceBuffer<ChaChaStateSizeInWords> single_block_output_device;
     uint32_t num_inputs = 1;
 
-    std::array<void*, 2> buffers = { single_block_input_device.raw(), single_block_output_device.raw() };
-
     gpu_chacha20_block(
-        /*stream=*/nullptr, buffers.data(), /*opaque=*/reinterpret_cast<const char*>(&num_inputs),
-        /*opaque_length=*/sizeof(num_inputs)
+        /*stream=*/nullptr, num_inputs, single_block_input_device.raw(), single_block_output_device.raw()
     );
 
     std::array<uint32_t, ChaChaStateSizeInWords> single_block_output = single_block_output_device.read();
@@ -124,11 +121,8 @@ int test_gpu_chacha20_block()
     DeviceBuffer<4*ChaChaStateSizeInWords> multiple_block_input_device(multiple_block_input);
     DeviceBuffer<4*ChaChaStateSizeInWords> multiple_block_output_device;
 
-    buffers = { multiple_block_input_device.raw(), multiple_block_output_device.raw() };
-
     gpu_chacha20_block(
-        /*stream=*/nullptr, buffers.data(), /*opaque=*/reinterpret_cast<const char*>(&num_inputs),
-        /*opaque_length=*/sizeof(num_inputs)
+        /*stream=*/nullptr, num_inputs, multiple_block_input_device.raw(), multiple_block_output_device.raw()
     );
 
     multiple_block_output_device.read(multiple_block_output);
@@ -149,11 +143,8 @@ int test_gpu_chacha20_block()
     it = std::copy(test_vector_states[3].cbegin(), test_vector_states[3].cend(), it);
     multiple_block_input_device.write(multiple_block_input);
 
-    buffers = { multiple_block_input_device.raw(), multiple_block_output_device.raw() };
-
     gpu_chacha20_block(
-        /*stream=*/nullptr, buffers.data(), /*opaque=*/reinterpret_cast<const char*>(&num_inputs),
-        /*opaque_length=*/sizeof(num_inputs)
+        /*stream=*/nullptr, num_inputs, multiple_block_input_device.raw(), multiple_block_output_device.raw()
     );
 
     multiple_block_output_device.read(multiple_block_output);
@@ -176,11 +167,8 @@ int test_gpu_chacha20_block()
     it = std::copy(test_vector_states[5].cbegin(), test_vector_states[5].cend(), it);
     multiple_block_input_device.write(multiple_block_input);
 
-    buffers = { multiple_block_input_device.raw(), multiple_block_output_device.raw() };
-
     gpu_chacha20_block(
-        /*stream=*/nullptr, buffers.data(), /*opaque=*/reinterpret_cast<const char*>(&num_inputs),
-        /*opaque_length=*/sizeof(num_inputs)
+        /*stream=*/nullptr, num_inputs, multiple_block_input_device.raw(), multiple_block_output_device.raw()
     );
 
     multiple_block_output_device.read(multiple_block_output);

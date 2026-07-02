@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #pragma once
 
 #include <iostream>
 #include <array>
 #include <vector>
+#include <cstdint>
 
 #include "defs.hpp"
 

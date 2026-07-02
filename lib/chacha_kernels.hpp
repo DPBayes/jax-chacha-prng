@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2023 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #pragma once
 
 
 // cpu_kernel.cpp
-extern void cpu_chacha20_block(void* out_buffer, const void** in_buffers);
+void cpu_chacha20_block(uint32_t num_states, const uint32_t* state_buffer, uint32_t* result_buffer);
 
 #if (CUDA_ENABLED || HIP_ENABLED)
     #ifdef CUDA_ENABLED
@@ -19,5 +19,5 @@ extern void cpu_chacha20_block(void* out_buffer, const void** in_buffers);
     #endif // HIP_ENABLED
 
     // gpu_kernel.cpp.cu
-    extern void gpu_chacha20_block(gpuStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length);
+    extern void gpu_chacha20_block(gpuStream_t stream, uint32_t num_states, const uint32_t* in_states, uint32_t* out_states);
 #endif // (CUDA_ENABLED || HIP_ENABLED)
