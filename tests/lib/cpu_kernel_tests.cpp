@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2021 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #include <iostream>
 
@@ -245,9 +245,7 @@ int test_cpu_chacha20_block()
     std::array<uint32_t, ChaChaStateSizeInWords> single_block_output;
     uint32_t num_inputs = 1;
 
-    std::array<const void*, 2> inputs({&num_inputs, single_block_input.data()});
-
-    cpu_chacha20_block(single_block_output.data(), inputs.data());
+    cpu_chacha20_block(num_inputs, single_block_input.data(), single_block_output.data());
 
     num_fails += test_assert(single_block_output == test_vector_expected[0]);
 
@@ -259,9 +257,7 @@ int test_cpu_chacha20_block()
         multiple_block_input.begin());
     it = std::copy(test_vector_states[0].cbegin(), test_vector_states[0].cend(), it);
 
-    inputs = {&num_inputs, multiple_block_input.data()};
-
-    cpu_chacha20_block(multiple_block_output.data(), inputs.data());
+    cpu_chacha20_block(num_inputs, multiple_block_input.data(), multiple_block_output.data());
 
     num_fails += test_assert(
         std::equal(test_vector_expected[0].cbegin(), test_vector_expected[0].cend(),
@@ -278,9 +274,7 @@ int test_cpu_chacha20_block()
         multiple_block_input.begin());
     it = std::copy(test_vector_states[3].cbegin(), test_vector_states[3].cend(), it);
 
-    inputs = {&num_inputs, multiple_block_input.data()};
-
-    cpu_chacha20_block(multiple_block_output.data(), inputs.data());
+    cpu_chacha20_block(num_inputs, multiple_block_input.data(), multiple_block_output.data());
 
     num_fails += test_assert(
         std::equal(test_vector_expected[1].cbegin(), test_vector_expected[1].cend(),
@@ -299,9 +293,7 @@ int test_cpu_chacha20_block()
     it = std::copy(test_vector_states[2].cbegin(), test_vector_states[2].cend(), it);
     it = std::copy(test_vector_states[5].cbegin(), test_vector_states[5].cend(), it);
 
-    inputs = {&num_inputs, multiple_block_input.data()};
-
-    cpu_chacha20_block(multiple_block_output.data(), inputs.data());
+    cpu_chacha20_block(num_inputs, multiple_block_input.data(), multiple_block_output.data());
 
     num_fails += test_assert(
         std::equal(test_vector_expected[1].cbegin(), test_vector_expected[1].cend(),

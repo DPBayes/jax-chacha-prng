@@ -194,7 +194,7 @@ class ChaChaRNGTests(unittest.TestCase):
         rng_key = PRNGKey(0)
         sample = random_bits(rng_key, 32, ())
         self.assertEqual((), jnp.shape(sample))
-        self.assertEqual(jnp.uint32, jnp.dtype(sample))
+        self.assertEqual(jnp.uint32, sample.dtype)
 
     def test_random_bits_invalid_width(self) -> None:
         rng_key = PRNGKey(0)

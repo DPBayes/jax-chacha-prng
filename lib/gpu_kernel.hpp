@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2023 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #pragma once
 
@@ -22,4 +22,4 @@
 __global__
 void chacha20_block_with_shuffle(uint32_t* out_state, const uint32_t* in_state, uint num_threads);
 
-void gpu_chacha20_block(gpuStream_t stream, void** buffers, const char* opaque, std::size_t opaque_length);
+void gpu_chacha20_block(gpuStream_t stream, uint32_t num_states, const uint32_t* in_states, uint32_t* out_states);

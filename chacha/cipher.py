@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2021 Aalto University
+# SPDX-FileCopyrightText: © 2026 Aalto University
 
 """ A JAX-accelerated implementation of the 20-round ChaCha cipher.
 
@@ -146,7 +146,7 @@ def set_nonce(state: ChaChaState, nonce: jnp.ndarray) -> ChaChaState:
       The new ChaCha cipher state with the given nonce value.
     """
     assert jnp.shape(nonce) == (3,)
-    assert jnp.dtype(state) == jnp.dtype(nonce)
+    assert state.dtype == nonce.dtype
     return state.at[3, 1:4].set(nonce)
 
 

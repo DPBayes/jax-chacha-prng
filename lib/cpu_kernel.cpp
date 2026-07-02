@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2022 Aalto University
+// SPDX-FileCopyrightText: © 2026 Aalto University
 
 #include "cpu_kernel.hpp"
 
@@ -103,17 +103,14 @@ void chacha20_block(uint32_t out_state[16], const uint32_t in_state[16])
     vec_tmp_state.unvectorize(out_state);
 }
 
-void cpu_chacha20_block(void* out_buffer, const void** in_buffers)
+void cpu_chacha20_block(uint32_t num_states, const uint32_t* state_buffer, uint32_t* result_buffer)
 {
-    uint32_t num_states = *reinterpret_cast<const uint32_t*>(in_buffers[0]);
-    const uint32_t* in_states = reinterpret_cast<const uint32_t*>(in_buffers[1]);
-    uint32_t* out_state = reinterpret_cast<uint32_t*>(out_buffer);
     #ifdef OPENMP_AVAILABLE
     #pragma omp parallel for
     #endif
     for (uint32_t i = 0; i < num_states; ++i)
     {
         uint32_t offset = ChaChaStateSizeInWords * i;
-        chacha20_block(out_state + offset, in_states + offset);
+        chacha20_block(result_buffer + offset, state_buffer + offset);
     }
 }
