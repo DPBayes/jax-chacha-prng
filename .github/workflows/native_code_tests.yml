@@ -46,31 +46,11 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: true
+    - name: Build cross-compilation container
+      run: docker build -t arm-cross-builder arm_container
     - name: Build and run in container
-      uses: addnab/docker-run-action@v3
-      with:
-        image: ubuntu:jammy
-        options: -v ${{ github.workspace }}:/work/src -e FORCE_GENERIC=${{ matrix.force_generic }}
-        run: |
-          sed -i 's/http/[arch=i386,amd64] http/g' /etc/apt/sources.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted" >> /etc/apt/sources.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted" >> /etc/apt/sources.list
-          dpkg --add-architecture arm64
-          apt-get update
-          apt-get upgrade -y
-          apt-get install -y qemu binfmt-support qemu-user-static libc6:arm64 \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross cmake python3 python3-dev libpython3-dev:arm64
-          mkdir /work/build
-          cd /work/build
-          cmake \
-            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
-            -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu/ \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=BOTH \
-            -DCMAKE_CROSSCOMPILING_EMULATOR="/usr/bin/qemu-aarch64-static;-L;/usr/aarch64-linux-gnu/" \
-            -DBUILD_TESTING=On \
-            -DFORCE_GENERIC=${{ matrix.force_generic }} \
-            -DCMAKE_BUILD_TYPE=Release ../src
-          make
-          /usr/bin/qemu-aarch64-static -L /usr/aarch64-linux-gnu/ ./cpu_kernel_tests
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/work/src \
+          -e FORCE_GENERIC=${{ matrix.force_generic }} \
+          arm-cross-builder
